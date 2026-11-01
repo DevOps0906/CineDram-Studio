@@ -1,0 +1,16 @@
+{
+  "name": "hookingtime",
+  "label": "후킹타임형 (검은 캔버스 · 위 두 줄 제목 · 가운데 얼굴 중심 꽉 채움 · 영상 안 자막 · 아래 출처 띠)",
+  "benchmark": "docs/07-후킹타임벤치마크.md — 2026-11-02 채널 쇼츠 탭 썸네일 관찰. 좌표는 썸네일에서 비율로 추정한 값이라 실제 영상으로 보정해야 한다",
+  "canvas": [1080, 1920],
+  "fps": 30,
+  "video": { "x": 0, "y": 340, "w": 1080, "h": 1090, "fit": "cover", "face_ratio": 0.34, "face_y": 0.42, "max_scale": 1.5 },
+  "colors": { "bottom_bg": "0x000000", "top_bg": "0x000000", "accent": "0x000000" },
+  "top": { "h": 340, "accent_h": 0 },
+  "title": { "size": 92, "center_y": 175, "line_gap": 10, "color": "FFE600", "colors": ["FFE600", "FF2A2A"], "outline": 0, "bold": true },
+  "subtitle": { "size": 70, "center_y": 1290, "color": "FF2A2A", "outline": 6, "outline_color": "000000", "bold": true },
+  "caption": { "size": 46, "center_y": 1620, "color": "FFFFFF", "italic": true, "text": "{source_caption}" },
+  "channel": { "size": 30, "center_y": 1860, "color": "666666" },
+  "font": { "family": "Malgun Gothic", "files": ["malgun.ttf", "malgunbd.ttf"], "search_dirs": ["C:/Windows/Fonts", "/usr/share/fonts", "/System/Library/Fonts"] },
+  "safe_zone_note": "쇼츠 하단 약 15%와 우측은 앱 UI가 덮는다. 출처 띠는 중요한 정보를 두지 않는다."
+}

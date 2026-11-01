@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제작 현황 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+</head>
+<body data-page="status">
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">로딩</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">제작 현황</h1>
+      <p class="page-sub label muted" aria-live="polite">3초마다 갱신 · 마지막 갱신 2초 전</p>
+    </div>
+    <div class="pills" role="group" aria-label="묶음">
+      <button class="pill" data-act="pill" aria-pressed="true">전체 5</button>
+      <button class="pill" data-act="pill" aria-pressed="false">진행 중 2</button>
+      <button class="pill" data-act="pill" aria-pressed="false">승인 대기 3</button>
+    </div>
+  </div>
+
+  <!-- 오류 -->
+  <div class="banner flexview" data-state-view="error" role="alert" style="margin-bottom: calc(var(--spacing) * 4)">
+    <i data-i="warn"></i>
+    <span class="grow"><strong>현황을 불러오지 못했습니다.</strong> 연결을 3번 다시 시도했습니다. 아래는 40초 전 내용입니다.</span>
+    <button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button>
+  </div>
+
+  <!-- 빈 -->
+  <div class="empty" data-state-view="empty">
+    <i data-i="activity"></i>
+    <p class="card-title">진행 중인 제작이 없습니다</p>
+    <p class="muted">만들기에서 작품과 구성을 고르면 여기에 단계별로 표시됩니다.</p>
+    <a class="btn btn-primary" href="create.html"><i data-i="plus"></i>만들기로 가기</a>
+  </div>
+
+  <!-- 로딩 -->
+  <div class="stack" data-state-view="loading" aria-busy="true" aria-label="불러오는 중">
+    <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div><div class="skel w70"></div></div>
+    <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div><div class="skel w70"></div></div>
+    <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div><div class="skel w70"></div></div>
+  </div>
+
+  <!-- 정상 / 오류(이전 내용 흐리게) -->
+  <div data-state-view="normal error">
+  <div class="stack" id="jobs">
+    <h2 class="label muted">진행 중 <span class="count">2</span></h2>
+
+    <article class="card selected">
+      <div class="card-head"><span class="badge b-comp">한드짜</span><strong>달빛 수선소 · E04</strong><span class="end label muted num"><i data-i="clock"></i> 11분 7초</span></div>
+      <ol class="progress" aria-label="진행 단계">
+        <li class="done"><span class="step-name"><i data-i="check"></i>소재</span></li>
+        <li class="done"><span class="step-name"><i data-i="check"></i>원본</span></li>
+        <li class="now" aria-current="step"><span class="step-name">제작 · 4분 12초</span></li>
+        <li><span class="step-name">검수</span></li>
+        <li><span class="step-name">업로드</span></li>
+      </ol>
+      <div class="row"><span class="badge b-ok"><i data-i="circlecheck"></i>제작 가능</span><span class="label muted num">렌더 2회</span></div>
+      <details><summary><i data-i="chevron"></i>로그 자세히</summary>
+        <ul class="log num"><li><span>소재 선정 · 완료</span><span>11분 7초</span></li><li><span>원본 확인 · 완료</span><span>0분 52초</span></li><li><span>제작 · 렌더 2/3</span><span>진행 중</span></li></ul>
+      </details>
+    </article>
+
+    <article class="card">
+      <div class="card-head"><span class="badge b-comp">감동 반전</span><strong>서쪽 정류장의 겨울 · E02</strong><span class="end label muted num"><i data-i="clock"></i> 3분 40초</span></div>
+      <ol class="progress" aria-label="진행 단계">
+        <li class="done"><span class="step-name"><i data-i="check"></i>소재</span></li>
+        <li class="now" aria-current="step"><span class="step-name">원본 · 막힘</span></li>
+        <li><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li>
+      </ol>
+      <div class="row"><span class="badge b-nosrc"><i data-i="filex"></i>원본 없음</span><span class="label muted">원본 들어오면 자동 제작</span></div>
+    </article>
+
+    <h2 class="label muted">승인 대기 <span class="count hot">3</span></h2>
+
+    <article class="card">
+      <div class="card-head"><span class="badge b-comp">한드짜</span><strong>유리정원 사무소 · E07</strong><span class="end label muted num"><i data-i="clock"></i> 49분</span></div>
+      <ol class="progress" aria-label="진행 단계">
+        <li class="done"><span class="step-name"><i data-i="check"></i>소재</span></li><li class="done"><span class="step-name"><i data-i="check"></i>원본</span></li><li class="done"><span class="step-name"><i data-i="check"></i>제작</span></li>
+        <li class="now" aria-current="step"><span class="step-name">검수 · 사람 확인</span></li><li><span class="step-name">업로드</span></li>
+      </ol>
+      <div class="row"><span class="badge b-review"><i data-i="scaneye"></i>업로드 검토 필요</span><a class="btn btn-link-sm" href="inbox.html">승인함에서 보기</a></div>
+    </article>
+
+    <article class="card">
+      <div class="card-head"><span class="badge b-comp">1인칭 나레이션</span><strong>파도 위 도서관 · E11</strong><span class="end label muted num"><i data-i="clock"></i> 1시간 2분</span></div>
+      <ol class="progress" aria-label="진행 단계">
+        <li class="done"><span class="step-name"><i data-i="check"></i>소재</span></li><li class="done"><span class="step-name"><i data-i="check"></i>원본</span></li><li class="done"><span class="step-name"><i data-i="check"></i>제작</span></li>
+        <li class="now" aria-current="step"><span class="step-name">검수 · 막힘</span></li><li><span class="step-name">업로드</span></li>
+      </ol>
+      <div class="row"><span class="badge b-rights"><i data-i="shield"></i>권리 미확인</span><span class="label muted">업로드 경로 닫힘 (R9-1)</span></div>
+    </article>
+
+    <article class="card">
+      <div class="card-head"><span class="badge b-comp">예능</span><strong>여름 끝 체육관 · E03</strong><span class="end label muted num"><i data-i="clock"></i> 2시간 15분</span></div>
+      <ol class="progress" aria-label="진행 단계">
+        <li class="done"><span class="step-name"><i data-i="check"></i>소재</span></li><li class="done"><span class="step-name"><i data-i="check"></i>원본</span></li>
+        <li class="now" aria-current="step"><span class="step-name">제작 · 일시 정지</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li>
+      </ol>
+      <div class="row"><span class="badge b-disk"><i data-i="disk"></i>디스크 부족</span><span class="label muted num">여유 3 GB / 필요 12 GB</span></div>
+    </article>
+  </div>
+  </div>
+</main>
+
+<aside class="aside" data-label="작업 상세" aria-label="작업 상세">
+  <div class="aside-inner">
+    <div class="aside-head"><h2 class="section-title">작업 상세</h2><span class="badge b-comp">한드짜</span></div>
+    <p><strong>달빛 수선소 · E04</strong><br><span class="label muted">후보 1 "10년 전 편지" · 관문 멈춤</span></p>
+    <dl class="kv num"><dt>시작</dt><dd>14:02</dd><dt>경과</dt><dd>11분 7초</dd><dt>렌더</dt><dd>2회 (최대 3)</dd><dt>디스크</dt><dd>여유 182 GB</dd></dl>
+    <h3 class="label muted">단계 로그</h3>
+    <ul class="log num">
+      <li><span><i data-i="check"></i> 소재 선정 · 완료</span><span>11분 7초</span></li>
+      <li><span><i data-i="check"></i> 원본 확인 · 완료</span><span>0분 52초</span></li>
+      <li><span><i data-i="loader" class="spin"></i> 제작 · 렌더 2/3</span><span>4분 12초</span></li>
+      <li class="muted"><span>검수</span><span>대기</span></li>
+      <li class="muted"><span>업로드</span><span>대기</span></li>
+    </ul>
+    <button class="btn btn-ghost btn-block">작업 취소</button>
+  </div>
+</aside>
+<script src="_app.js"></script>
+</body>
+</html>

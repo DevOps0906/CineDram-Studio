@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>승인함 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+</head>
+<body data-page="inbox">
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">승인함</h1>
+      <p class="page-sub label muted">승인한 카드만 업로드 예약이 열립니다. 권리 미확인 카드는 보관만 할 수 있습니다.</p>
+    </div>
+    <div class="pills" role="group" aria-label="필터">
+      <button class="pill" data-act="pill" aria-pressed="true">승인 대기 3</button>
+      <button class="pill" data-act="pill" aria-pressed="false">승인됨 1</button>
+      <button class="pill" data-act="pill" aria-pressed="false">보관 0</button>
+    </div>
+  </div>
+
+  <div class="empty" data-state-view="empty">
+    <i data-i="inbox"></i>
+    <p class="card-title">승인 대기 카드가 없습니다</p>
+    <p class="muted">검수까지 끝난 영상이 여기에 모입니다.</p>
+    <a class="btn btn-secondary" href="status.html">제작 현황 보기</a>
+  </div>
+
+  <div class="inbox" data-state-view="normal">
+    <div class="stack inbox-list">
+
+      <!-- 1. 일반 승인 대기 -->
+      <article class="card selected" aria-label="유리정원 사무소 E07 승인 카드">
+        <div class="card-head"><span class="badge b-comp">한드짜</span><span class="label">유리정원 사무소 · E07</span><span class="end label muted num">49분</span><button class="icon-btn" aria-label="더 보기 (취소)"><i data-i="more"></i></button></div>
+        <h2 class="card-title clamp-2">퇴근 직전 걸려 온 전화 한 통, 팀장의 표정이 굳었다</h2>
+        <button class="btn btn-secondary"><i data-i="play"></i>영상 확인</button>
+        <div class="inspect"><span class="t-ok"><i data-i="check"></i>통과 14</span><span class="t-warn"><i data-i="warn"></i>경고 2</span><span class="muted"><i data-i="x"></i>실패 0</span><span class="t-warn"><i data-i="warn"></i>경계 3</span></div>
+        <div class="checks" aria-label="캡컷 마무리 확인">
+          <label class="check" title="1 미리보기 불러오기"><input type="checkbox" checked>1</label>
+          <label class="check" title="2 캔버스 9:16 크롭"><input type="checkbox" checked>2</label>
+          <label class="check" title="3 자막·민감 처리"><input type="checkbox" checked>3</label>
+          <label class="check" title="4 나레이션 TTS"><input type="checkbox">4</label>
+          <label class="check" title="5 제목 텍스트"><input type="checkbox">5</label>
+          <label class="check" title="6 내보내기"><input type="checkbox">6</label>
+          <span class="label muted">(캡컷)</span>
+        </div>
+        <div class="decide"><button class="btn btn-primary">승인</button><button class="btn btn-secondary">수정 요청</button><button class="btn btn-secondary">다시 만들기</button></div>
+      </article>
+
+      <!-- 2. 권리 미확인: [승인] 대신 [보관], 업로드 예약 없음 -->
+      <article class="card" aria-label="파도 위 도서관 E11 승인 카드 — 권리 미확인">
+        <div class="card-head"><span class="badge b-rights"><i data-i="shield"></i>권리 미확인</span><span class="badge b-comp">1인칭 나레이션</span><span class="label">파도 위 도서관 · E11</span><span class="end label muted num">1시간 2분</span><button class="icon-btn" aria-label="더 보기 (취소)"><i data-i="more"></i></button></div>
+        <h2 class="card-title clamp-2">사서가 반납함에서 꺼낸 책, 대출 기록이 없었다</h2>
+        <button class="btn btn-secondary"><i data-i="play"></i>영상 확인</button>
+        <div class="inspect"><span class="t-ok"><i data-i="check"></i>통과 15</span><span class="t-warn"><i data-i="warn"></i>경고 1</span><span class="muted"><i data-i="x"></i>실패 0</span><span class="t-warn"><i data-i="warn"></i>경계 1</span></div>
+        <p class="label muted">권리(rights_status)가 확인되기 전에는 업로드 경로가 열리지 않습니다 (R9-1).</p>
+        <div class="decide"><button class="btn btn-secondary"><i data-i="archive"></i>보관</button><button class="btn btn-secondary">수정 요청</button><button class="btn btn-secondary">다시 만들기</button></div>
+      </article>
+
+      <!-- 3. 점검 실패: 승인 비활성 + 이유, 수정 요청이 첫 버튼 -->
+      <article class="card" aria-label="달빛 수선소 E02 승인 카드 — 점검 실패">
+        <div class="card-head"><span class="badge b-comp">감동 반전</span><span class="label">달빛 수선소 · E02</span><span class="end label muted num">2시간 4분</span><button class="icon-btn" aria-label="더 보기 (취소)"><i data-i="more"></i></button></div>
+        <h2 class="card-title clamp-2">단추 하나 때문에 30년 단골이 발길을 끊은 사연</h2>
+        <button class="btn btn-secondary"><i data-i="play"></i>영상 확인</button>
+        <div class="inspect"><span class="t-ok"><i data-i="check"></i>통과 12</span><span class="t-warn"><i data-i="warn"></i>경고 3</span><span class="t-fail"><i data-i="x"></i>실패 1</span><span class="t-warn"><i data-i="warn"></i>경계 0</span></div>
+        <div class="decide"><button class="btn btn-secondary">수정 요청</button><button class="btn btn-secondary">다시 만들기</button><button class="btn" aria-disabled="true" title="점검 실패 1건: 자막과 음성이 0.6초 어긋남">승인</button></div>
+        <p class="label t-fail">승인 불가 — 점검 실패 1건(자막 시각 오차 0.6초)</p>
+      </article>
+
+      <!-- 4. 처리 중(로딩) -->
+      <article class="card" aria-label="여름 끝 체육관 E05 승인 카드 — 처리 중" aria-busy="true">
+        <div class="card-head"><span class="badge b-comp">예능</span><span class="label">여름 끝 체육관 · E05</span><span class="end label muted num">25분</span></div>
+        <h2 class="card-title clamp-2">체육관 불이 꺼지자 시작된 마지막 경기</h2>
+        <div class="decide"><button class="btn btn-primary" aria-disabled="true"><i data-i="loader" class="spin"></i>승인 중</button><button class="btn" aria-disabled="true">수정 요청</button><button class="btn" aria-disabled="true">다시 만들기</button></div>
+      </article>
+
+      <!-- 5. 승인됨 + rights own → 업로드 예약 활성 -->
+      <article class="card" aria-label="유리정원 사무소 E06 — 승인됨">
+        <div class="card-head"><span class="badge b-ok"><i data-i="circlecheck"></i>승인됨</span><span class="badge b-comp">한드짜</span><span class="label">유리정원 사무소 · E06</span></div>
+        <h2 class="card-title clamp-2">신입이 남긴 메모 한 장에 회의실이 조용해졌다</h2>
+        <p class="label muted num">승인: 운영자 김가온(가상) · 11-02 13:40 · 점검 ✓16 △0 ✗0 · 권리 own</p>
+        <p class="label num"><i data-i="tv"></i> 업로드 대상 채널: <strong>드라마 쇼츠</strong> · ID …k3x7Qa</p>
+        <button class="btn btn-primary"><i data-i="calendar"></i>업로드 예약</button>
+      </article>
+    </div>
+
+    <!-- 상세 (태블릿 이상) -->
+    <section class="card inbox-detail" aria-label="선택한 카드 상세">
+      <div class="card-head"><span class="badge b-review"><i data-i="scaneye"></i>업로드 검토 필요</span><span class="label">유리정원 사무소 · E07</span></div>
+      <div class="video"><span>영상 자리 (9:16)<br><span class="label">썸네일 없음 — 시안</span></span></div>
+      <h3 class="label muted">캡컷 마무리 6단계</h3>
+      <ul class="log">
+        <li><span><i data-i="check" class="t-ok"></i> 1 미리보기 불러오기</span><span>완료</span></li>
+        <li><span><i data-i="check" class="t-ok"></i> 2 캔버스 9:16 크롭</span><span>완료</span></li>
+        <li><span><i data-i="check" class="t-ok"></i> 3 자막·민감 처리</span><span>완료</span></li>
+        <li class="muted"><span>4 나레이션 TTS</span><span>확인 전</span></li>
+        <li class="muted"><span>5 제목 텍스트</span><span>확인 전</span></li>
+        <li class="muted"><span>6 내보내기</span><span>확인 전</span></li>
+      </ul>
+      <div class="box"><span class="label">업로드 대상 채널</span><strong class="num"><i data-i="tv"></i> 드라마 쇼츠 · ID …k3x7Qa</strong>
+        <p class="label muted">[승인]하면 승인 기록에 이 채널 ID가 함께 남습니다. 채널을 바꾸려면 승인 전에 원클릭 폼에서 고르세요.</p></div>
+      <button class="btn" aria-disabled="true" title="승인 후에만 열립니다"><i data-i="calendar"></i>업로드 예약</button>
+    </section>
+  </div>
+</main>
+
+<aside class="aside" data-label="점검 로그" aria-label="점검 로그">
+  <div class="aside-inner">
+    <div class="aside-head"><h2 class="section-title">점검 로그</h2><span class="label muted">공통 28항</span></div>
+    <div class="inspect"><span class="t-ok"><i data-i="check"></i>14</span><span class="t-warn"><i data-i="warn"></i>2</span><span class="muted"><i data-i="x"></i>0</span><span class="t-warn">경계 3</span></div>
+    <ul class="log">
+      <li><span class="t-warn"><i data-i="warn"></i> 나레이션 비율 58% (권장 40~55%)</span><span>경고</span></li>
+      <li><span class="t-warn"><i data-i="warn"></i> 컷 사이 간격 0.1초</span><span>경고</span></li>
+      <li><span class="t-warn"><i data-i="warn"></i> 경계 장면 3곳 — 가림 확인</span><span>경계</span></li>
+      <li><span class="t-ok"><i data-i="check"></i> 길이 48초 (30~55초)</span><span>통과</span></li>
+      <li><span class="t-ok"><i data-i="check"></i> 제목 두 줄 이내</span><span>통과</span></li>
+    </ul>
+    <details><summary><i data-i="chevron"></i>통과 항목 12개 더 보기</summary><p class="label muted">(시안 — 실제 목록은 common §12)</p></details>
+    <h3 class="label muted">승인 로그</h3>
+    <ul class="log num"><li><span>검수 완료 · 시스템</span><span>11-02 13:51</span></li><li><span>승인 대기 진입</span><span>11-02 13:52</span></li></ul>
+  </div>
+</aside>
+<script src="_app.js"></script>
+</body>
+</html>

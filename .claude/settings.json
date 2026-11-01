@@ -1,0 +1,24 @@
+{
+  "model": "claude-opus-5-5",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/*.p12)",
+      "Read(./**/*.pfx)",
+      "Read(./**/id_rsa*)",
+      "Read(./**/id_ed25519*)",
+      "Read(./**/node_modules/**)",
+      "Read(./**/.next/**)",
+      "Read(./**/dist/**)",
+      "Read(./**/build/**)",
+      "Read(./**/.dart_tool/**)",
+      "Read(./**/coverage/**)",
+      "Read(./**/*.lock)",
+      "Read(./**/pnpm-lock.yaml)",
+      "Read(./**/package-lock.json)"
+    ]
+  }
+}

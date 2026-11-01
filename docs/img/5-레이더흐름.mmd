@@ -1,0 +1,21 @@
+flowchart LR
+    subgraph RADAR["꿀통레이더 (소재 후보 발굴)"]
+        R1["인물선정<br/>적합도 / 경쟁도"]
+        R2["팬튜브 선점<br/>선점지수"]
+        R3["1분 카테고리<br/>합산 조회수"]
+    end
+
+    PICK["후보 선택<br/>(사람)"]
+    RG{"권리 게이트<br/>origin / rights_status"}
+    PLAN["기획: 구성 선택 + 컷표.json"]
+    GATE{{"기획 승인 게이트 P0"}}
+    MAKE["영상 생성<br/>render / handoff / delegate"]
+    REV["승인함: 검수 + 수정 요청"]
+    UP{"업로드 게이트<br/>사람 승인"}
+
+    R1 --> PICK
+    R2 --> PICK
+    R3 --> PICK
+    PICK --> RG --> PLAN --> GATE --> MAKE --> REV --> UP
+    REV -.수정 요청 (재승인).-> PLAN
+    UP -.성과 데이터.-> RADAR

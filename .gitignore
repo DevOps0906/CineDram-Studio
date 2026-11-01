@@ -1,0 +1,23 @@
+.nomad/
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# 외부 강의 캡처(제3자 저작물·초상) — 올리지 않는다
+_원본_무료판/images/
+_원본_무료판/images2/
+
+# 생성 산출물(mmd-check 렌더링 SVG)
+docs/**/*.svg
+
+# 작업 임시
+*.mp4
+*.mov

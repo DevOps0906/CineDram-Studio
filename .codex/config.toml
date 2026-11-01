@@ -1,0 +1,10 @@
+# ChatGPT Codex (CLI · IDE 확장) 프로젝트 설정
+# - 지시 정본은 AGENTS.md (Codex 기본 파일명이라 별도 설정 없이 읽음). 영역 규칙은 AGENTS.md 7장 표를 따른다.
+# - 이 파일은 Codex가 이 프로젝트를 "신뢰(trusted)"로 표시했을 때만 적용된다(첫 실행 시 선택). 안 되면 ~/.codex/config.toml에 같은 값을 둔다.
+# - 전역 공통 원칙은 `bash install.sh --codex` 가 ~/.codex/AGENTS.md 에 추가한다.
+
+approval_policy = "on-request"     # 샌드박스 밖 동작(네트워크 · 작업 폴더 밖 쓰기)은 묻고 실행
+sandbox_mode = "workspace-write"   # 프로젝트 폴더 안에서만 쓰기
+
+# 모델을 고정하려면 주석을 풀고 작업 시점의 최신 GPT 코딩 모델 이름을 적는다.
+# model = "<모델 이름>"

@@ -1,0 +1,37 @@
+flowchart TB
+  subgraph D["데스크톱 1200~ : 3열 앱 셸"]
+    direction LR
+    SB["좌 사이드바 232px<br/>브랜드 · 그룹 라벨<br/>홈 / 만들기 / 제작 현황 / 승인함(대기 n)<br/>글자 배율 가- 가+"]
+    MAIN["중앙 작업 영역<br/>상단 탭바 36px(열린 화면)<br/>필터 필 · 카드 그리드 · 큰 점수"]
+    RIGHT["우 제작 현황 열<br/>진행 중(n) / 승인 대기(n)<br/>5단계 진행바 · 로그 펼치기"]
+    SB --- MAIN --- RIGHT
+  end
+  subgraph T["태블릿 768~1199 : 2열"]
+    direction LR
+    TSB["접는 메뉴(아이콘)"] --- TMAIN["중앙 작업 영역"] -.->|"열기"| TDR["우측 드로어<br/>제작 현황"]
+  end
+  subgraph M["모바일 ~767 : 1열"]
+    direction LR
+    MC["승인 카드 중심 1열"] --- MTAB["하단 탭 44px<br/>홈 · 제작 현황 · 승인함"]
+  end
+  D --> T --> M
+
+  subgraph S["화면 5종 (패턴 코드)"]
+    direction LR
+    S1["만들기 A+I<br/>작품 → 구성 → 소재 모드 → 속도 → 실행"]
+    S2["관문① 소재 I<br/>후보 3개: 점수·킥·끝 장면"]
+    S3["관문② 제목 I+J<br/>흐름 4줄 · 후킹 2 · 제목 3"]
+    S4["제작 현황 N<br/>소재 → 원본 → 제작 → 검수 → 업로드"]
+    S5["승인함 F+B<br/>카드: 영상 확인 · 승인 · 수정 요청"]
+    S1 --> S2 --> S3 --> S4 --> S5
+  end
+  MAIN --> S
+
+  subgraph R["승인 카드 분기 (권리 게이트)"]
+    direction LR
+    Q{"rights_status"}
+    Q -->|"own / licensed + 점검 통과"| OK["[승인] → [업로드 예약] 활성"]
+    Q -->|"권리 미확인"| HOLD["[보관]만 노출<br/>업로드 경로 닫힘"]
+    Q -->|"점검 실패"| NG["승인 비활성 + 이유"]
+  end
+  S5 --> R

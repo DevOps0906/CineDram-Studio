@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>레이더 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  /* 이 화면 전용 — 토큰만 사용 */
+  [role="tabpanel"][hidden] { display: none; }
+  .note { display: flex; gap: calc(var(--spacing) * 2); align-items: flex-start; padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4); border-radius: var(--radius-card); background: var(--color-info-subtle); color: var(--color-info-subtle-fg); font-size: var(--text-label); margin-bottom: calc(var(--spacing) * 4); }
+  .add-kw { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: minmax(0, 1fr); }
+  @media (width >= 768px) { .add-kw { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: end; } }
+  .kw { font-weight: 700; }
+  .tbl td .btn { min-height: var(--size-touch); white-space: nowrap; }
+  .trend { display: inline-flex; align-items: center; gap: calc(var(--spacing) * 1); }
+  .placeholder { text-align: center; }
+</style>
+</head>
+<body data-page="radar">
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">불러오는 중</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">레이더</h1>
+      <p class="page-sub muted">소재 후보를 모으는 입력 화면입니다. 단계 5(후속) 시안 · 값은 모두 가상입니다.</p>
+    </div>
+  </div>
+
+  <p class="note" role="note"><i data-i="radar"></i><span>점수는 <strong>참고값</strong>이고 소재 확정은 관문 ①에서 <strong>사람</strong>이 합니다. 점수가 높아도 권리 게이트는 면제되지 않습니다. 수집은 공식 API와 수동 입력만 씁니다(<a href="../../docs/12-레이더모듈.md">docs/12</a> §4·§5, <a href="../../docs/13-원클릭제작흐름.md">docs/13</a> §3).</span></p>
+
+  <div class="seg-tabs" role="tablist" aria-label="레이더 탭">
+    <button role="tab" data-tab="feed" aria-controls="p-feed">소재 피드</button>
+    <button role="tab" data-tab="works" aria-controls="p-works">작품 레이더</button>
+    <button role="tab" data-tab="entry" aria-controls="p-entry">진입 성적표</button>
+    <button role="tab" data-tab="people" aria-controls="p-people">인물 레이더</button>
+    <button role="tab" data-tab="keyword" aria-controls="p-keyword"><i data-i="star"></i>황금키워드</button>
+  </div>
+
+  <section role="tabpanel" id="p-feed" hidden><div class="empty placeholder"><i data-i="radar"></i><p class="card-title">소재 피드 (S-RD1)</p><p class="label muted">카테고리별 소재 카드 — 다음 시안. 홈의 '레이더 오늘의 후보' 카드와 같은 구성.</p></div></section>
+  <section role="tabpanel" id="p-works" hidden><div class="empty placeholder"><i data-i="film"></i><p class="card-title">작품 레이더 (S-RD2)</p><p class="label muted">작품 점수 카드 + 안전 등급 배지 — 다음 시안.</p></div></section>
+  <section role="tabpanel" id="p-entry" hidden><div class="empty placeholder"><i data-i="activity"></i><p class="card-title">진입 성적표 (S-RD3)</p><p class="label muted">GO 작품 표 — 다음 시안.</p></div></section>
+  <section role="tabpanel" id="p-people" hidden><div class="empty placeholder"><i data-i="user"></i><p class="card-title">인물 레이더 (S-RD4)</p><p class="label muted">오늘의 픽 — 초상·명예 규칙(person-fantube) 확인 후 다음 시안.</p></div></section>
+
+  <!-- 황금키워드 (S-RD5) -->
+  <section role="tabpanel" id="p-keyword" class="stack" hidden>
+    <form class="card" onsubmit="return false" aria-labelledby="h-kw" data-state-view="normal error empty">
+      <h2 id="h-kw" class="card-title">키워드 추가</h2>
+      <div class="add-kw">
+        <label class="field"><span class="label muted">키워드</span><input class="input" placeholder="예: 야간 편의점 반전"></label>
+        <label class="field"><span class="label muted">입력 방식</span><select class="input"><option>수동 입력</option><option>공식 API 조회</option></select></label>
+        <button class="btn btn-primary"><i data-i="plus"></i>추가하고 조회</button>
+      </div>
+    </form>
+
+    <div class="banner" data-state-view="error" role="alert"><i data-i="warn"></i><span class="grow">조회를 불러오지 못했습니다. 아래는 마지막 조회 값입니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+    <div class="card" data-state-view="loading" aria-busy="true" aria-label="불러오는 중"><div class="skel w40"></div><div class="skel w90"></div><div class="skel w90"></div></div>
+    <div class="empty" data-state-view="empty"><i data-i="star"></i><p class="card-title">등록한 키워드가 없습니다</p><p class="label muted">위에서 키워드를 추가하면 조회 시점과 함께 기록됩니다.</p></div>
+
+    <div class="tbl" data-state-view="normal error">
+      <table>
+        <thead><tr><th>키워드</th><th>입력</th><th>조회 시점</th><th>검색 추이 (참고)</th><th>우리 성과 연결</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="kw">야간 편의점 반전</td><td>수동</td><td class="num">11/02 09:10</td><td><span class="trend t-ok"><i data-i="up"></i>오름 · 경쟁 채널 적음</span></td><td>우리 영상 3편 · 타율 67%</td><td><a class="btn btn-link-sm" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭으로 만들기</a></td></tr>
+          <tr><td class="kw">사내 연애 들킴</td><td>공식 API</td><td class="num">11/02 09:10</td><td><span class="trend muted">보합</span></td><td>우리 영상 5편 · 타율 20%</td><td><a class="btn btn-link-sm" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭으로 만들기</a></td></tr>
+          <tr><td class="kw">할머니 손편지</td><td>수동</td><td class="num">11/01 21:40</td><td><span class="trend t-ok"><i data-i="up"></i>오름</span></td><td class="muted">연결된 우리 영상 없음</td><td><a class="btn btn-link-sm" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭으로 만들기</a></td></tr>
+          <tr><td class="kw">체육관 결승 역전</td><td>공식 API</td><td class="num">10/31 18:00</td><td><span class="trend t-warn"><i data-i="down"></i>내림</span></td><td>우리 영상 1편 · 타율 0%</td><td><a class="btn btn-link-sm" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭으로 만들기</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="label muted">조회수와 추이는 계속 변하므로 항상 조회 시점과 함께 봅니다. '우리 성과 연결'은 이 키워드로 만든 우리 영상의 타율이며, 레이더 사용/미사용 타율 비교에 씁니다.</p>
+  </section>
+</main>
+
+<aside class="aside" data-label="후보 바구니" aria-label="후보 바구니">
+  <div class="aside-inner">
+    <div class="aside-head"><h2 class="section-title">후보 바구니 <span class="count">1</span></h2></div>
+    <div class="card"><div class="card-head"><span class="badge b-comp">키워드</span><strong>야간 편의점 반전</strong></div><p class="label muted">추천 방식 한드짜 · 권리는 작품을 고를 때 판정</p></div>
+    <a class="btn btn-strong btn-block" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭 제작으로 보내기</a>
+    <p class="label muted">보낸 뒤에도 관문 ①·기획 승인·승인함은 그대로 거칩니다.</p>
+  </div>
+</aside>
+<script src="_app.js"></script>
+<script>
+  (function () {
+    var tabs = document.querySelectorAll('[role="tab"]');
+    function show(n) { tabs.forEach(function (t) { var on = t.dataset.tab === n; t.setAttribute('aria-selected', on); document.getElementById(t.getAttribute('aria-controls')).hidden = !on; }); }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.tab); }); });
+    var w = new URLSearchParams(location.search).get('tab');
+    show(['feed', 'works', 'entry', 'people', 'keyword'].indexOf(w) > -1 ? w : 'keyword');
+  })();
+</script>
+</body>
+</html>

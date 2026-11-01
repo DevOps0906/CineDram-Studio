@@ -1,0 +1,18 @@
+{
+  "name": "topbottom",
+  "label": "상하 템플릿 (위 제목 · 가운데 영상 · 아래 자막)",
+  "canvas": [1080, 1920],
+  "fps": 30,
+  "video": { "x": 0, "y": 480, "w": 1080, "h": 608, "fit": "contain" },
+  "colors": {
+    "bottom_bg": "0x0F172A",
+    "top_bg": "0x0B1437",
+    "accent": "0x2563EB"
+  },
+  "top": { "h": 480, "accent_h": 8 },
+  "title": { "size": 84, "center_y": 240, "line_gap": 14, "color": "FFFFFF", "bold": true },
+  "subtitle": { "size": 66, "center_y": 1300, "color": "FFFFFF", "outline": 5, "outline_color": "000000", "bold": true },
+  "channel": { "size": 36, "center_y": 1840, "color": "94A3B8" },
+  "font": { "family": "Malgun Gothic", "files": ["malgun.ttf", "malgunbd.ttf"], "search_dirs": ["C:/Windows/Fonts", "/usr/share/fonts", "/System/Library/Fonts"] },
+  "safe_zone_note": "쇼츠 하단 약 15%와 우측은 앱 UI가 덮는다. 자막은 center_y 1300에 두어 피한다."
+}

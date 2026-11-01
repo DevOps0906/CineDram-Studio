@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph S0["입력"]
+        I1["원본 영상 + SRT"]
+        I2{"권리 게이트<br/>origin / rights_status"}
+    end
+
+    subgraph S1["1단계 기획 (영상보다 먼저)"]
+        direction TB
+        P1["구성 선택<br/>규칙 7종 + 채널 스타일"]
+        P2["줄거리 + 민감 장면 표시"]
+        P3["소재 3개 / 흐름 4줄<br/>후킹 / 제목"]
+        P4["컷표.json + meta.plan"]
+        P5["check, TTS 실측, recalc"]
+        P1 --> P2 --> P3 --> P4 --> P5
+    end
+
+    GATE{{"기획 승인 게이트<br/>approve (사람)<br/>수정 시 재승인"}}
+
+    subgraph S2["2단계 영상 (승인된 기획만)"]
+        direction TB
+        V1["A 자동 렌더<br/>템플릿 + 얼굴 중앙 크롭"]
+        V2["B 캡컷 넘기기"]
+        V3["C AI 어시스턴트 위임"]
+    end
+
+    subgraph S3["3단계 승인과 측정"]
+        direction TB
+        O1["승인함 / 영상 보관함"]
+        O2{"업로드 게이트<br/>사람 승인"}
+        O3["성과 7일 / 28일 / 누적"]
+        O4["타율 / 저점 / 실패율<br/>기획점별 비교"]
+        O1 --> O2 --> O3 --> O4
+    end
+
+    RULES[("rules/ + modes/<br/>common, 구성 7종, 채널 스타일")]
+    ENGINE[("engine/shortsflow.py<br/>계산은 스크립트")]
+    AI[("AI 직원<br/>판단은 모델 단계별")]
+
+    I1 --> I2 --> P1
+    P5 --> GATE
+    GATE --> V1
+    GATE --> V2
+    GATE --> V3
+    V1 --> O1
+    V2 --> O1
+    V3 --> O1
+    O4 -.규칙 고정 / 삭제.-> RULES
+    GATE -.수정 필요.-> P4
+    RULES -.-> P1
+    ENGINE -.-> P5
+    ENGINE -.-> V1
+    AI -.-> P3

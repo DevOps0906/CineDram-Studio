@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph MODEL["모델 (설정값, 코드에 박지 않음)"]
+        M1["Fable 5.1 / 높음<br/>규칙 개정, 기획점 분석 (주 1회)"]
+        M2["Opus 5.5 / 중간~높음<br/>소재 3개, 흐름, 후킹, 제목"]
+        M3["Sonnet 5.5 / 중간<br/>자막 전체 읽기, 줄거리"]
+        M4["Haiku 5.5 / 낮음<br/>맞춤법, 점검표, 포맷 정리"]
+    end
+
+    subgraph SCRIPT["스크립트 shortsflow.py (비용 0원, 같은 입력 같은 결과)"]
+        X1["check / recalc<br/>SRT 시각, 컷 길이"]
+        X2["crop_plan<br/>확대, 크롭 좌표"]
+        X3["render / handoff / delegate"]
+    end
+
+    M3 --> M2
+    M2 --> M4
+    M4 --> X1
+    X1 --> X2
+    X2 --> X3
+
+    LOG[("llm_calls<br/>단계 / 모델 / 노력 / 사용량 / 사람 수정")]
+    M1 -.-> LOG
+    M2 -.-> LOG
+    M3 -.-> LOG
+    M4 -.-> LOG
+    LOG --> EVAL["모델별 타율 비교<br/>비슷하면 싼 쪽"]
+    EVAL -.배치 조정.-> M2

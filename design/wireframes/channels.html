@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>채널 관리 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  /* 이 화면 전용 — 토큰만 사용. 우측 열이 없는 화면이라 데스크톱 2열 */
+  @media (width >= 1200px) { .app { grid-template-columns: var(--size-sidebar) minmax(0, 1fr); } }
+  .wrap { max-width: calc(var(--spacing) * 260); }
+  .secret { display: flex; gap: calc(var(--spacing) * 2); align-items: flex-start; padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4); border-radius: var(--radius-card); background: var(--color-info-subtle); color: var(--color-info-subtle-fg); font-size: var(--text-label); margin-bottom: calc(var(--spacing) * 4); }
+
+  /* 계정 · 채널 행 */
+  .acct-ico { display: inline-grid; place-items: center; width: calc(var(--spacing) * 9); height: calc(var(--spacing) * 9); border-radius: var(--radius-pill); background: var(--color-neutral-subtle); color: var(--color-neutral-subtle-fg); flex: none; }
+  .ch { display: grid; gap: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 3) 0; border-bottom: 1px solid var(--color-border); grid-template-columns: minmax(0, 1fr); }
+  .ch:last-child { border-bottom: 0; }
+  @media (width >= 1200px) { .ch { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; column-gap: calc(var(--spacing) * 4); } }
+  .ch-id { display: flex; align-items: center; gap: calc(var(--spacing) * 3); min-width: 0; }
+  .ch-ico { display: inline-grid; place-items: center; width: calc(var(--spacing) * 10); height: calc(var(--spacing) * 10); border-radius: var(--radius-control); flex: none; }
+  .ch-a { background: var(--color-info-subtle); color: var(--color-info-subtle-fg); }
+  .ch-b { background: var(--color-success-subtle); color: var(--color-success-subtle-fg); }
+  .ch-c { background: var(--color-warning-subtle); color: var(--color-warning-subtle-fg); }
+  .ch-d { background: var(--color-neutral-subtle); color: var(--color-neutral-subtle-fg); }
+  .alias { display: flex; align-items: center; gap: calc(var(--spacing) * 1); }
+  .alias input { border: 1px solid transparent; background: transparent; font-weight: 700; min-height: var(--size-touch); padding: 0 calc(var(--spacing) * 1); border-radius: var(--radius-control); width: 100%; min-width: 0; }
+  .alias input:hover, .alias input:focus { border-color: var(--color-input); }
+  .ch-acts { display: flex; flex-wrap: wrap; gap: calc(var(--spacing) * 2); }
+  .ch.off .ch-id strong, .ch.off .alias input { color: var(--color-text-muted); }
+  /* 좌 계정 목록(GNB) + 우 상세 / 태블릿 목록 접힘 / 모바일 목록→상세 2단 */
+  [data-acct-view][hidden] { display: none; }
+  .acct-layout { display: grid; gap: calc(var(--spacing) * 4); grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .acct-list { display: flex; flex-direction: column; gap: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 3); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+  .acct-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--spacing) * 1); }
+  .acct-list-head { display: flex; align-items: center; gap: calc(var(--spacing) * 2); padding: 0 calc(var(--spacing) * 1); }
+  .acct-item { width: 100%; display: flex; align-items: center; gap: calc(var(--spacing) * 3); min-height: var(--size-touch); padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; text-align: left; cursor: pointer; }
+  .acct-item:hover { background: var(--color-bg); }
+  .acct-item[aria-current="true"] { background: var(--color-bg); border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+  .acct-item .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .dot { width: calc(var(--spacing) * 2.5); height: calc(var(--spacing) * 2.5); border-radius: var(--radius-pill); flex: none; background: var(--color-input); }
+  .dot.ok { background: var(--color-success); } .dot.bad { background: var(--color-danger); }
+  @media (width < 768px) {
+    .acct-layout[data-view="list"] .acct-detail { display: none; }
+    .acct-layout[data-view="detail"] .acct-list { display: none; }
+  }
+  @media (768px <= width < 1200px) {
+    .acct-list { display: none; }
+    .acct-layout.list-open .acct-list { display: flex; }
+  }
+  @media (width >= 1200px) {
+    .acct-layout { grid-template-columns: calc(var(--spacing) * 68) minmax(0, 1fr); }
+    .acct-list { position: sticky; top: calc(var(--size-touch) + var(--spacing) * 4); }
+    .acct-nav { display: none; }
+  }
+  .conds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--spacing) * 1.5); font-size: var(--text-label); }
+  .conds li { display: flex; align-items: flex-start; gap: calc(var(--spacing) * 1.5); }
+</style>
+</head>
+<body data-page="channels">
+<main class="main">
+  <div class="wrap">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">불러오는 중</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">채널 관리</h1>
+      <p class="page-sub muted">구글 계정을 연결하고, 계정마다 YouTube 채널을 불러와 업로드할 채널만 [등록]합니다. 값은 모두 가상입니다.</p>
+    </div>
+  </div>
+
+  <p class="secret" role="note"><i data-i="key"></i><span>구글 토큰 같은 비밀은 서버에만 저장되고 로그에 남지 않습니다. 이 앱은 구글 비밀번호를 받지 않습니다. 다른 계정의 채널을 헷갈리지 않게 별칭·아이콘·ID 끝 6자리를 함께 봅니다.</span></p>
+
+  <div class="banner" data-state-view="error" role="alert" style="margin-bottom: calc(var(--spacing) * 4)"><i data-i="warn"></i><span class="grow">계정·채널 상태를 불러오지 못했습니다. 아래는 마지막으로 불러온 값이며 바꿀 수 없습니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+  <div class="stack" data-state-view="loading" aria-busy="true" aria-label="불러오는 중">
+    <div class="card"><div class="skel w40"></div><div class="skel w90"></div><div class="skel w70"></div></div>
+    <div class="card"><div class="skel w40"></div><div class="skel w90"></div></div>
+  </div>
+
+  <div class="acct-layout" id="acct-layout" data-view="list" data-state-view="normal error">
+    <!-- 좌측 계정 목록 (GNB) -->
+    <nav class="acct-list" aria-label="구글 계정 목록">
+      <div class="acct-list-head"><strong>구글 계정</strong> <span class="count" id="acct-n">3</span></div>
+      <ul id="acct-items">
+        <li><button class="acct-item" data-acct="1" aria-current="true"><span class="dot ok" aria-hidden="true"></span><span class="grow"><strong>드라마 운영</strong><br><span class="label muted num">ki****@gmail.com · 채널 2/3</span></span><span class="sr-only">상태: 일부 채널 권한 부족</span></button></li>
+        <li><button class="acct-item" data-acct="2"><span class="dot bad" aria-hidden="true"></span><span class="grow"><strong>사연 채널 운영</strong><br><span class="label muted num">ar****@gmail.com · 채널 2/2</span></span><span class="sr-only">상태: 재연결 필요</span></button></li>
+        <li><button class="acct-item" data-acct="3"><span class="dot ok" aria-hidden="true"></span><span class="grow"><strong>공용 백업</strong><br><span class="label muted num">mo****@gmail.com · 채널 0/1</span></span><span class="sr-only">상태: 연결됨</span></button></li>
+      </ul>
+      <button class="btn btn-secondary btn-block" data-open="dlg-oauth"><i data-i="plus"></i>구글 계정 추가</button>
+      <p class="label muted">추가한 계정은 목록 아래로 쌓입니다.</p>
+    </nav>
+
+    <!-- 우측 상세: 선택한 계정 -->
+    <div class="acct-detail stack">
+      <div class="row acct-nav">
+        <button class="btn btn-ghost only-mobile" data-acct-back><i data-i="up" style="transform: rotate(-90deg)"></i>계정 목록</button>
+        <button class="btn btn-secondary only-tablet" data-acct-toggle aria-expanded="false"><i data-i="menu"></i><span>계정 목록 (<span class="num" id="acct-n2">3</span>)</span></button>
+      </div>
+      <div class="row label muted"><span>연결 상태:</span>
+        <span class="badge b-ok"><i data-i="circlecheck"></i>연결됨</span><span class="badge b-disk"><i data-i="clock"></i>토큰 만료</span><span class="badge b-rights"><i data-i="shield"></i>권한 부족</span><span class="badge b-disk"><i data-i="gauge"></i>쿼터 초과</span><span class="badge b-rights"><i data-i="refresh"></i>재연결 필요</span>
+      </div>
+
+      <article class="card" data-acct-view="1" aria-label="구글 계정 ki****@gmail.com">
+        <div class="card-head"><span class="acct-ico"><i data-i="user"></i></span><span><strong class="num">ki****@gmail.com</strong><br><span class="label muted">채널 3개 중 2개 등록 · 11/02 13:58 불러옴</span></span>
+          <span class="end row"><button class="btn btn-ghost"><i data-i="refresh"></i>채널 목록 새로고침</button><button class="btn btn-ghost" data-open="dlg-acctdel"><i data-i="trash"></i>토큰 폐기 후 제거</button></span></div>
+        <div>
+          <div class="ch">
+            <div class="ch-id"><span class="ch-ico ch-a" aria-hidden="true"><i data-i="tv"></i></span>
+              <span style="min-width: 0; flex: 1"><label class="alias"><span class="sr-only">별칭</span><input value="드라마 쇼츠" aria-label="채널 별칭"><i data-i="pencil" class="muted"></i></label>
+              <span class="label muted num">원래 이름 '드라마 한입 (가상)' · ID …k3x7Qa · 연결 ID conn_8f2a</span></span></div>
+            <div class="row"><span class="badge b-ok"><i data-i="circlecheck"></i>연결됨</span><span class="badge b-comp">업로드 직전 채널 확인: 통과 13:58</span><span class="label muted">업로드: 검수 후 업로드 (전역 기본) · 자동 업로드 꺼짐</span></div>
+            <div class="ch-acts"><button class="btn btn-secondary">해제</button></div>
+          </div>
+          <div class="ch">
+            <div class="ch-id"><span class="ch-ico ch-c" aria-hidden="true"><i data-i="tv"></i></span>
+              <span style="min-width: 0; flex: 1"><label class="alias"><span class="sr-only">별칭</span><input value="클립 보관함" aria-label="채널 별칭"><i data-i="pencil" class="muted"></i></label>
+              <span class="label muted num">원래 이름 '장면 창고 (가상)' · ID …Pq81Zc · 연결 ID conn_8f2a</span></span></div>
+            <div class="row"><span class="badge b-rights"><i data-i="shield"></i>권한 부족 · 업로드 권한 없음</span><span class="badge b-comp">업로드 직전 채널 확인: 대기</span><span class="label muted">업로드: 검수 후 업로드 · 자동 업로드 잠김(첫 업로드 전)</span></div>
+            <div class="ch-acts"><button class="btn btn-primary"><i data-i="refresh"></i>재연결</button><button class="btn btn-secondary">해제</button></div>
+          </div>
+          <div class="ch off">
+            <div class="ch-id"><span class="ch-ico ch-d" aria-hidden="true"><i data-i="tv"></i></span>
+              <span style="min-width: 0; flex: 1"><strong>개인 브이로그 (가상)</strong><br><span class="label muted num">ID …aa09Lm · 등록 안 함</span></span></div>
+            <div class="row"><span class="label muted">등록 전에는 업로드 대상에 나오지 않습니다</span></div>
+            <div class="ch-acts"><button class="btn btn-link-sm" style="min-height: var(--size-touch)"><i data-i="plus"></i>등록</button></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" data-acct-view="2" aria-label="구글 계정 ar****@gmail.com" hidden>
+        <div class="card-head"><span class="acct-ico"><i data-i="user"></i></span><span><strong class="num">ar****@gmail.com</strong><br><span class="label muted">채널 2개 중 2개 등록 · 11/01 22:10 불러옴</span></span>
+          <span class="end row"><button class="btn btn-ghost"><i data-i="refresh"></i>채널 목록 새로고침</button><button class="btn btn-ghost" data-open="dlg-acctdel"><i data-i="trash"></i>토큰 폐기 후 제거</button></span></div>
+        <div>
+          <div class="ch">
+            <div class="ch-id"><span class="ch-ico ch-b" aria-hidden="true"><i data-i="tv"></i></span>
+              <span style="min-width: 0; flex: 1"><label class="alias"><span class="sr-only">별칭</span><input value="감동 사연" aria-label="채널 별칭"><i data-i="pencil" class="muted"></i></label>
+              <span class="label muted num">원래 이름 '오늘의 사연 (가상)' · ID …Rt2M2p · 연결 ID conn_31c7</span></span></div>
+            <div class="row"><span class="badge b-disk"><i data-i="clock"></i>토큰 만료</span><span class="badge b-comp">업로드 직전 채널 확인: 대기</span><span class="label muted">업로드: 자동 업로드 (채널에서 켬) · 토큰 만료 중 예약 멈춤</span></div>
+            <div class="ch-acts"><button class="btn btn-primary"><i data-i="refresh"></i>재연결</button><button class="btn btn-secondary">해제</button></div>
+          </div>
+          <div class="ch">
+            <div class="ch-id"><span class="ch-ico ch-a" aria-hidden="true"><i data-i="tv"></i></span>
+              <span style="min-width: 0; flex: 1"><label class="alias"><span class="sr-only">별칭</span><input value="짧은 반전" aria-label="채널 별칭"><i data-i="pencil" class="muted"></i></label>
+              <span class="label muted num">원래 이름 '반전 한 컷 (가상)' · ID …Wv5n0e · 연결 ID conn_31c7</span></span></div>
+            <div class="row"><span class="badge b-disk"><i data-i="gauge"></i>쿼터 초과 · 내일 재개</span><span class="badge b-rights"><i data-i="refresh"></i>재연결 필요</span><span class="badge b-comp">업로드 직전 채널 확인: 불일치 → 보류</span><span class="label muted">업로드: 검수 후 업로드 · 자동 업로드 잠김(새로 등록)</span></div>
+            <div class="ch-acts"><button class="btn btn-primary"><i data-i="refresh"></i>재연결</button><button class="btn btn-secondary">해제</button></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" data-acct-view="3" aria-label="구글 계정 mo****@gmail.com" hidden>
+        <div class="card-head"><span class="acct-ico"><i data-i="user"></i></span><span><strong class="num">mo****@gmail.com</strong><br><span class="label muted">채널 1개 중 0개 등록 · 11/02 10:05 불러옴</span></span>
+          <span class="end row"><button class="btn btn-ghost"><i data-i="refresh"></i>채널 목록 새로고침</button><button class="btn btn-ghost" data-open="dlg-acctdel"><i data-i="trash"></i>토큰 폐기 후 제거</button></span></div>
+        <div>
+          <div class="ch off">
+            <div class="ch-id"><span class="ch-ico ch-d" aria-hidden="true"><i data-i="tv"></i></span>
+              <span style="min-width: 0; flex: 1"><strong>백업 보관 채널 (가상)</strong><br><span class="label muted num">ID …Yb44Te · 등록 안 함</span></span></div>
+            <div class="row"><span class="label muted">등록하면 '새로 등록한 채널'이라 자동 업로드 스위치는 잠깁니다</span></div>
+            <div class="ch-acts"><button class="btn btn-link-sm" style="min-height: var(--size-touch)"><i data-i="plus"></i>등록</button></div>
+          </div>
+        </div>
+      </article>
+
+      <p class="label muted"><i data-i="shield"></i> 업로드 직전에 채널 ID를 다시 확인(channels.list)해서, 등록한 ID와 다르면 업로드하지 않고 보류합니다. '재연결 필요'는 인증이 막힌 상태(blocked_auth)로, 그 채널의 예약이 모두 멈춥니다.</p>
+      <p class="label muted"><i data-i="calendar"></i> 채널별 업로드 방식과 자동 업로드 스위치(새 채널·첫 업로드 전 채널은 잠김)는 <a href="settings.html?tab=upload">환경설정 › 업로드 방식</a>에서 바꿉니다.</p>
+    </div>
+  </div>
+  <div class="empty" data-state-view="empty"><i data-i="tv"></i><p class="card-title">연결된 구글 계정이 없습니다</p><p class="muted label">계정을 추가하고 채널을 [등록]해야 업로드 대상 채널로 고를 수 있습니다.</p><button class="btn btn-primary" data-open="dlg-oauth"><i data-i="plus"></i>구글 계정 추가</button></div>
+  </div>
+</main>
+
+<!-- 모달: 구글 계정 추가 (OAuth 안내) -->
+<dialog class="modal" id="dlg-oauth" aria-labelledby="h-oauth">
+  <form method="dialog" class="modal-body">
+    <h2 id="h-oauth" class="card-title">구글 계정 추가</h2>
+    <p>구글 로그인 창으로 이동합니다. <strong>이 앱은 구글 비밀번호를 받지 않습니다.</strong> 구글이 발급한 토큰만 서버에 저장합니다.</p>
+    <div class="box"><span class="label">요청 권한 (범위 확정 전 — 자리)</span>
+      <ul class="conds"><li><i data-i="check" class="t-ok"></i><span>YouTube 채널 목록 읽기</span></li><li><i data-i="check" class="t-ok"></i><span>YouTube 동영상 업로드·예약</span></li><li><i data-i="clock" class="muted"></i><span>그 밖의 권한: 미정</span></li></ul></div>
+    <p class="label muted">돌아오면 이 계정의 채널 목록을 불러옵니다. 업로드할 채널만 [등록]하세요.</p>
+    <div class="modal-foot"><button class="btn btn-secondary" value="cancel">취소</button><button class="btn btn-primary" value="ok">구글로 계속</button></div>
+  </form>
+</dialog>
+
+<!-- 모달: 계정 제거 -->
+<dialog class="modal" id="dlg-acctdel" aria-labelledby="h-acctdel">
+  <form method="dialog" class="modal-body">
+    <h2 id="h-acctdel" class="card-title">이 구글 계정을 제거할까요?</h2>
+    <ul class="conds">
+      <li><i data-i="x" class="t-fail"></i><span>Google 연결 해제(revoke) — 구글 쪽 권한을 취소합니다</span></li>
+      <li><i data-i="trash" class="t-fail"></i><span>이 서버의 토큰 삭제</span></li>
+      <li><i data-i="pause" class="t-warn"></i><span>이 계정 채널의 예약은 모두 <strong>보류</strong> (이미 YouTube에 올라간 영상은 그대로)</span></li>
+    </ul>
+    <div class="modal-foot"><button class="btn btn-secondary" value="cancel">취소</button><button class="btn btn-danger" value="ok">연결 해제 후 제거</button></div>
+  </form>
+</dialog>
+
+<script src="_app.js"></script>
+<script>
+  (function () {
+    document.addEventListener('click', function (e) {
+      var o = e.target.closest('[data-open]'); if (!o || o.getAttribute('aria-disabled') === 'true') return;
+      e.preventDefault(); document.getElementById(o.dataset.open).showModal();
+    });
+
+    // 계정 목록 ↔ 상세 (?acct=1|2|3)
+    var layout = document.getElementById('acct-layout'), items = document.getElementById('acct-items');
+    function pick(id, toDetail) {
+      items.querySelectorAll('.acct-item').forEach(function (b) { if (b.dataset.acct === id) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+      document.querySelectorAll('[data-acct-view]').forEach(function (a) { a.hidden = a.dataset.acctView !== id; });
+      if (toDetail) layout.dataset.view = 'detail';
+      layout.classList.remove('list-open');
+    }
+    items.addEventListener('click', function (e) { var b = e.target.closest('.acct-item'); if (b) pick(b.dataset.acct, true); });
+    document.querySelector('[data-acct-back]').addEventListener('click', function () { layout.dataset.view = 'list'; });
+    var tg = document.querySelector('[data-acct-toggle]');
+    tg.addEventListener('click', function () { tg.setAttribute('aria-expanded', layout.classList.toggle('list-open')); });
+    var a0 = (new URLSearchParams(location.search).get('acct') || '').replace(/\D/g, '');
+    if (a0 && items.querySelector('[data-acct="' + a0 + '"]')) pick(a0, true);
+
+    // [구글로 계속] → 가상 계정을 목록 맨 아래에 추가 (시연)
+    var dlg = document.getElementById('dlg-oauth'), seq = 3;
+    dlg.addEventListener('close', function () {
+      if (dlg.returnValue !== 'ok') return;
+      seq += 1; var id = String(seq);
+      items.insertAdjacentHTML('beforeend', '<li><button class="acct-item" data-acct="' + id + '"><span class="dot" aria-hidden="true"></span><span class="grow"><strong>새 계정 ' + id + ' (가상)</strong><br><span class="label muted num">ne' + id + '***@gmail.com · 채널 불러오는 중</span></span></button></li>');
+      document.querySelector('[data-acct-view="' + (seq - 1) + '"]').insertAdjacentHTML('afterend', '<article class="card" data-acct-view="' + id + '" aria-label="새 계정 ' + id + '" hidden><div class="card-head"><span class="acct-ico">' + icon('user') + '</span><span><strong class="num">ne' + id + '***@gmail.com</strong><br><span class="label muted">YouTube 채널 목록을 불러오는 중…</span></span></div><div class="skel w70"></div><div class="skel w90"></div><p class="label muted">채널이 나오면 업로드할 채널만 [등록]하세요. 새로 등록한 채널은 자동 업로드가 잠깁니다.</p></article>');
+      document.getElementById('acct-n').textContent = document.getElementById('acct-n2').textContent = items.children.length;
+      pick(id, true);
+    });
+  })();
+</script>
+</body>
+</html>

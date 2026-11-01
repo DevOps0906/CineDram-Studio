@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph PLAN["1단계 기획 (영상보다 먼저)"]
+        A1["원본 + SRT<br/>origin / rights_status"] --> A2{"권리 게이트"}
+        A2 --> A3["구성 선택<br/>규칙 7종 + 채널 스타일"]
+        A3 --> A4["소재 모드"]
+        A4 --> B1["줄거리 + 민감 장면 표시"]
+        B1 --> B2["소재 3개 (점수표 100점)"]
+        B2 --> BG1{{"관문 1"}}
+        BG1 --> B3["흐름 4줄 / 후킹 / 제목 꼬리 6종"]
+        B3 --> BG2{{"관문 2"}}
+        BG2 --> B4["컷표.json + meta.plan<br/>소재 / 흐름 / 후킹 / 끝 장면 / 민감 검토"]
+        B4 --> B5["민감 처리 설계<br/>삭제 / 우회 / 가림"]
+        B5 --> C1["check<br/>규칙 위반 검사"]
+        C1 --> C2["tts-plan -> TTS 생성 -> tts-measure"]
+        C2 --> C5["recalc<br/>컷 길이 = 실측 + 0.2초<br/>타임라인 + 자막.srt"]
+    end
+
+    C5 --> GATE{{"기획 승인 게이트 P0<br/>approve (사람)<br/>해시 기록, 수정 시 재승인"}}
+
+    subgraph MAKE["2단계 영상 (승인된 기획만 입력)"]
+        D1["A render<br/>자동 렌더"]
+        D2["B handoff<br/>캡컷 넘기기"]
+        D3["C delegate<br/>AI 어시스턴트 위임"]
+        E1["템플릿 topbottom / hookingtime<br/>얼굴 좌표 -> 꽉 채움 + 중앙"]
+    end
+
+    GATE --> D1
+    GATE --> D2
+    GATE --> D3
+    D1 --> E1
+
+    subgraph OPS["3단계 승인과 측정"]
+        F1["영상 보관함 / 승인함"] --> F2{"업로드 게이트<br/>첫 업로드는 사람 승인"}
+        F2 --> F3["성과 7일 / 28일 / 누적<br/>수익 이중 타임스탬프"]
+        F3 --> F4["타율 + 저점 + 실패율<br/>기획점별 비교"]
+    end
+
+    E1 --> F1
+    D2 --> F1
+    D3 --> F1
+    F4 -.규칙 고정 / 삭제.-> A3
+    GATE -.수정 필요.-> B4

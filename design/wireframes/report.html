@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>성과 (영상 보관함 · 채널 성적표) — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  /* 이 화면 전용 — 토큰만 사용 */
+  [role="tabpanel"][hidden] { display: none; }
+  .sec { display: flex; flex-direction: column; gap: calc(var(--spacing) * 3); }
+  .sec-head { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); }
+  .sec-head .end { margin-left: auto; }
+  /* KPI: 모바일 가로 스와이프 / 768~ 2×2 / 1200~ 4칸 (docs/08 §8) */
+  .kpis { display: grid; gap: calc(var(--spacing) * 3); grid-auto-flow: column; grid-auto-columns: minmax(calc(var(--spacing) * 40), 1fr); overflow-x: auto; padding-bottom: calc(var(--spacing) * 1); scroll-snap-type: x mandatory; }
+  .kpis > * { scroll-snap-align: start; }
+  @media (width >= 768px) { .kpis { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; } }
+  @media (width >= 1200px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .kpi { gap: calc(var(--spacing) * 1); }
+  .kpi.main { border-color: var(--color-primary); }
+  .rank { list-style: none; margin: 0; padding: 0; counter-reset: r; }
+  .rank li { counter-increment: r; display: flex; align-items: center; gap: calc(var(--spacing) * 3); min-height: var(--size-touch); border-bottom: 1px solid var(--color-border); }
+  .rank li:last-child { border-bottom: 0; }
+  .rank li::before { content: counter(r); font-weight: 800; color: var(--color-primary); font-variant-numeric: tabular-nums; width: calc(var(--spacing) * 5); }
+  .rank .grow { flex: 1; min-width: 0; }
+  .cand { border-left: 3px solid var(--color-primary); }
+  .cand .row .btn { min-height: var(--size-touch); }
+  /* 보관함 카드: 모바일 2 / 태블릿 3 / 데스크톱 5 (docs/08 §8) */
+  .vault { display: grid; gap: calc(var(--spacing) * 3); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (width >= 768px) { .vault { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (width >= 1200px) { .vault { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (width >= 1440px) { .vault { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  .vcard { padding: calc(var(--spacing) * 2); gap: calc(var(--spacing) * 2); }
+  .vcard .video { max-width: none; padding: calc(var(--spacing) * 2); font-size: var(--text-label); }
+  .vcard .t { font-weight: 600; font-size: var(--text-label); line-height: var(--text-label--line-height); }
+</style>
+</head>
+<body data-page="report">
+<script>if (new URLSearchParams(location.search).get('tab') === 'archive') document.body.dataset.page = 'archive';</script>
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">불러오는 중</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">성과</h1>
+      <p class="page-sub muted">영상 보관함과 채널 성적표. 단계 4(후속) 최소 시안 · 값은 모두 가상입니다.</p>
+    </div>
+    <label class="field"><span class="sr-only">채널</span><select class="input" aria-label="채널"><option>드라마 쇼츠 · …k3x7Qa</option><option>감동 사연 · …Rt2M2p</option></select></label>
+  </div>
+
+  <div class="seg-tabs" role="tablist" aria-label="성과 탭">
+    <button role="tab" data-tab="archive" aria-controls="p-archive"><i data-i="film"></i>영상 보관함</button>
+    <button role="tab" data-tab="report" aria-controls="p-report"><i data-i="activity"></i>채널 성적표</button>
+  </div>
+
+  <div class="banner" data-state-view="error" role="alert" style="margin-bottom: calc(var(--spacing) * 4)"><i data-i="warn"></i><span class="grow">성과 데이터를 불러오지 못했습니다. 11/01 수집분을 보여 줍니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+  <div class="stack" data-state-view="loading" aria-busy="true" aria-label="불러오는 중"><div class="card"><div class="skel w40"></div><div class="skel w90"></div></div><div class="card"><div class="skel w70"></div><div class="skel w90"></div></div></div>
+  <div class="empty" data-state-view="empty"><i data-i="activity"></i><p class="card-title">아직 업로드한 영상이 없습니다</p><p class="muted label">첫 영상이 공개되고 하루 뒤부터 성과가 모입니다.</p></div>
+
+  <!-- 채널 성적표 -->
+  <section role="tabpanel" id="p-report" class="stack" data-state-view="normal error" hidden>
+    <div class="kpis" aria-label="이번 주 KPI">
+      <div class="card kpi main"><span class="label muted">이번 주 타율</span><span class="score">38%</span><span class="label muted">8편 중 3편 기준선 넘음</span></div>
+      <div class="card kpi"><span class="label muted">조회수 (7일)</span><span class="score">412K</span><span class="label muted">조회 시점 11/02 09:00</span></div>
+      <div class="card kpi"><span class="label muted">수익 (7일)</span><span class="score">186K</span><span class="label muted">원 · 추정치</span></div>
+      <div class="card kpi"><span class="label muted">일평균 수익</span><span class="score">26.6K</span><span class="label muted">원 · 추정치</span></div>
+    </div>
+
+    <section class="card" aria-labelledby="h-plan">
+      <h2 id="h-plan" class="card-title">기획점별 타율</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>기획점</th><th>편수</th><th>타율</th><th>7일 조회 중앙값</th></tr></thead>
+        <tbody>
+          <tr><td>정체 반전</td><td class="num">5</td><td class="num">60%</td><td class="num">48K</td></tr>
+          <tr><td>오해 → 해소</td><td class="num">4</td><td class="num">25%</td><td class="num">21K</td></tr>
+          <tr><td>마지막 한마디</td><td class="num">3</td><td class="num">33%</td><td class="num">30K</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- 규칙 후보 (docs/15 §5-5) -->
+    <section class="sec" aria-labelledby="h-rule">
+      <div class="sec-head"><h2 id="h-rule" class="section-title">규칙 후보</h2><span class="label muted">승인함 [수정 요청] 이력에서 반복된 항목 · 최근 30일</span></div>
+      <div class="card">
+        <h3 class="label muted">반복 수정 항목 순위</h3>
+        <ol class="rank">
+          <li><span class="grow">자막 첫 줄이 길어 한 번에 안 읽힘</span><span class="label muted num">12건</span></li>
+          <li><span class="grow">후킹 문장에 결말이 먼저 드러남</span><span class="label muted num">8건</span></li>
+          <li><span class="grow">나레이션 비율이 55% 넘음</span><span class="label muted num">6건</span></li>
+          <li><span class="grow">끝 장면이 대사 중간에서 잘림</span><span class="label muted num">3건</span></li>
+        </ol>
+      </div>
+      <div class="grid grid-2">
+        <article class="card cand" aria-label="규칙 후보 1">
+          <div class="card-head"><span class="badge b-review"><i data-i="pencil"></i>규칙 후보</span><span class="end label muted num">근거 수정 12건</span></div>
+          <strong>자막 첫 줄은 14자 이하</strong>
+          <p class="label muted">반영 위치(제안): 공통 규칙 자막 항목 · 이 규칙이 생긴 뒤 타율을 이전 4주와 비교해 효과를 봅니다.</p>
+          <div class="row"><button class="btn btn-primary"><i data-i="check"></i>규칙으로 승인</button><button class="btn btn-ghost">무시</button></div>
+          <p class="label muted"><i data-i="shield"></i> 승인하면 규칙 파일 변경안이 만들어지고, 사람이 내용을 확인해야 반영됩니다. 자동으로 바뀌지 않습니다.</p>
+        </article>
+        <article class="card cand" aria-label="규칙 후보 2">
+          <div class="card-head"><span class="badge b-review"><i data-i="pencil"></i>규칙 후보</span><span class="end label muted num">근거 수정 8건</span></div>
+          <strong>후킹 문장에서 결말 단어 금지</strong>
+          <p class="label muted">반영 위치(제안): 한드짜 규칙 후킹 항목 · 같은 기획점끼리 타율 비교.</p>
+          <div class="row"><button class="btn btn-primary"><i data-i="check"></i>규칙으로 승인</button><button class="btn btn-ghost">무시</button></div>
+          <p class="label muted"><i data-i="shield"></i> 승인 = 변경안 생성까지. 반영은 사람 확인 후.</p>
+        </article>
+      </div>
+    </section>
+  </section>
+
+  <!-- 영상 보관함 (최소) -->
+  <section role="tabpanel" id="p-archive" class="stack" data-state-view="normal error" hidden>
+    <div class="pills" role="group" aria-label="분류">
+      <button class="pill" data-act="pill" aria-pressed="true">전체</button><button class="pill" data-act="pill" aria-pressed="false">드라마</button><button class="pill" data-act="pill" aria-pressed="false">사연</button>
+    </div>
+    <div class="vault">
+      <article class="card vcard"><div class="video">9:16</div><span class="t clamp-2">퇴근 직전 걸려 온 전화 한 통</span><span class="label muted num">YJ-E07 · 0:48</span><span class="badge b-ok"><i data-i="circlecheck"></i>공개됨</span></article>
+      <article class="card vcard"><div class="video">9:16</div><span class="t clamp-2">신입이 남긴 메모 한 장</span><span class="label muted num">YJ-E06 · 0:52</span><span class="badge b-review"><i data-i="calendar"></i>예약됨 11/02 19:00</span></article>
+      <article class="card vcard"><div class="video">9:16</div><span class="t clamp-2">단추 하나 때문에 30년 단골이</span><span class="label muted num">DS-E05 · 0:45</span><span class="badge b-ok"><i data-i="circlecheck"></i>공개됨</span></article>
+      <article class="card vcard"><div class="video">미리보기 불가</div><span class="t clamp-2">사서가 반납함에서 꺼낸 책</span><span class="label muted num">PD-E11 · 0:50</span><span class="badge b-nosrc"><i data-i="filex"></i>원본 없음</span></article>
+      <article class="card vcard"><div class="video">9:16</div><span class="t clamp-2">체육관 불이 꺼지자</span><span class="label muted num">YG-E05 · 0:39</span><span class="badge b-rights"><i data-i="shield"></i>권리 미확인 · 보관</span></article>
+    </div>
+    <p class="label muted">카드 1개 = MP4 + 편집 프로젝트 + 지시서 + 자막 + TTS (docs/08 §2). 검색·작품 필터·"N종 흐름 보기"는 다음 시안.</p>
+  </section>
+</main>
+
+<aside class="aside" data-label="최근 7일 성과" aria-label="최근 영상 7일 성과">
+  <div class="aside-inner">
+    <div class="aside-head"><h2 class="section-title">최근 영상 7일 성과</h2><span class="label muted">조회 시점 09:00</span></div>
+    <ul class="log">
+      <li><span>퇴근 직전 걸려 온 전화 한 통</span><span class="num">62K</span></li>
+      <li><span>단추 하나 때문에 30년 단골이</span><span class="num">41K</span></li>
+      <li><span>복도 끝 자판기의 비밀</span><span class="num">18K</span></li>
+      <li><span>마지막 버스를 놓친 이유</span><span class="num">9.4K</span></li>
+    </ul>
+    <p class="label muted">숫자는 계속 변하므로 항상 조회 시점과 함께 봅니다.</p>
+  </div>
+</aside>
+<script src="_app.js"></script>
+<script>
+  (function () {
+    var tabs = document.querySelectorAll('[role="tab"]');
+    function show(n) {
+      tabs.forEach(function (t) { var on = t.dataset.tab === n; t.setAttribute('aria-selected', on); document.getElementById(t.getAttribute('aria-controls')).hidden = !on; });
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.tab); }); });
+    show(new URLSearchParams(location.search).get('tab') === 'archive' ? 'archive' : 'report');
+  })();
+</script>
+</body>
+</html>

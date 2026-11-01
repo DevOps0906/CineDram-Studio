@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>원클릭 제작 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  /* 이 화면 전용 — 토큰만 사용 */
+  .demo-bar a.pill { text-decoration: none; }
+  .demo-bar a.pill[aria-current="page"] { background: var(--color-primary); color: var(--color-primary-fg); }
+  .sec-head { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); }
+  .sec-n { display: inline-grid; place-items: center; width: calc(var(--spacing) * 6); height: calc(var(--spacing) * 6); border-radius: var(--radius-pill); background: var(--color-primary); color: var(--color-primary-fg); font-weight: 700; font-size: var(--text-label); font-variant-numeric: tabular-nums; flex: none; }
+
+  /* 제작 방식 선택 카드: 모바일 1열 / 태블릿 2열 / 데스크톱 4열 */
+  .methods { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: minmax(0, 1fr); }
+  @media (width >= 768px) { .methods { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (width >= 1200px) { .methods { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .method { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--spacing) * 1.5); min-height: var(--size-touch); padding: calc(var(--spacing) * 3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg); cursor: pointer; min-width: 0; }
+  .method input { position: absolute; opacity: 0; pointer-events: none; }
+  .method .m-name { font-weight: 600; }
+  .method .m-file { font-size: var(--text-label); color: var(--color-text-muted); overflow-wrap: anywhere; }
+  .method:has(input:checked) { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); background: var(--color-info-subtle); }
+  .method:has(input:checked) .m-name { color: var(--color-info-subtle-fg); }
+  .method:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .method:has(input:disabled) { cursor: not-allowed; background: var(--color-surface); }
+  .method:has(input:disabled) .m-name { color: var(--color-text-muted); }
+
+  /* 레이더에서 넘어온 소재 카드 */
+  .radar-card { border-color: var(--color-primary); }
+
+  /* 제작 모드: 모바일 1열 / 태블릿·데스크톱 3열 */
+  .modes { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: minmax(0, 1fr); }
+  @media (width >= 768px) { .modes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  .opt { position: relative; }
+  .reason[hidden] { display: none; }
+  #aside-warn { align-items: center; flex-wrap: wrap; }
+  /* 쇼츠/롱폼/기타 탭 — data-cat 없는 카드는 쇼츠 */
+  .sec-head .end-btn { margin-left: auto; }
+  .cat-tabs { margin-bottom: 0; }
+  #methods[data-show="shorts"] .method[data-cat],
+  #methods[data-show="long"] .method:not([data-cat="long"]),
+  #methods[data-show="etc"] .method:not([data-cat="etc"]) { display: none; }
+  .method .m-act { margin-top: auto; align-self: stretch; min-height: var(--size-touch); }
+  .method.imported { border-style: dashed; border-color: var(--color-input); }
+  /* 우측 요약(제작 중 · 순서 대기 · 승인 대기) */
+  .sum3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--spacing) * 2); text-align: center; }
+  .sum3 a { text-decoration: none; display: flex; flex-direction: column; gap: calc(var(--spacing) * 0.5); padding: calc(var(--spacing) * 2) calc(var(--spacing) * 1); border-radius: var(--radius-control); background: var(--color-bg); border: 1px solid var(--color-border); min-height: var(--size-touch); }
+  .sum3 .score { font-size: var(--text-card-title); line-height: var(--text-card-title--line-height); }
+  .run-card .row { justify-content: space-between; }
+  /* 업로드 요약(읽기 전용) — 방식은 환경설정 › 업로드 방식 */
+  .up-sum { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 3); padding: calc(var(--spacing) * 3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); }
+  .up-sum .grow { flex: 1; min-width: calc(var(--spacing) * 50); }
+  .up-sum .btn { min-height: var(--size-touch); }
+  body[data-channels="none"] [data-channels-view="some"],
+  body:not([data-channels="none"]) [data-channels-view="none"] { display: none !important; }
+  .reason { margin-top: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3); border-radius: var(--radius-control); background: var(--color-danger-subtle); color: var(--color-danger-subtle-fg); font-size: var(--text-label); display: flex; gap: calc(var(--spacing) * 1.5); align-items: flex-start; }
+  .sched { display: grid; gap: calc(var(--spacing) * 3); grid-template-columns: minmax(0, 1fr); }
+  @media (width >= 768px) { .sched { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  /* 변형 전환 (?from=radar, &rights=unknown) */
+  body:not([data-from="radar"]) [data-from-view="radar"],
+  body[data-from="radar"] [data-from-view="none"],
+  body[data-rights="unknown"] [data-rights-view="ok"],
+  body:not([data-rights="unknown"]) [data-rights-view="unknown"] { display: none !important; }
+
+  /* 최근 제작 기록 */
+  .rec .card-head strong { min-width: 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body data-page="oneclick">
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 변형 전환">
+    <span class="muted">시안 변형:</span>
+    <a class="pill" href="oneclick.html" data-variant="none">기본</a>
+    <a class="pill" href="oneclick.html?from=radar" data-variant="radar">레이더 카드에서 넘어옴</a>
+    <a class="pill" href="oneclick.html?from=radar&amp;rights=unknown" data-variant="unknown">권리 미확인 소재</a>
+    <a class="pill" href="oneclick.html?channels=none" data-variant="nochannel">등록 채널 없음</a>
+    <a class="pill" href="oneclick.html?aside=off" data-variant="asideoff">Aside 미로그인</a>
+    <span class="muted">· 기록:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">불러오는 중</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">원클릭 제작</h1>
+      <p class="page-sub muted">방식을 고르고, 소재는 비워 두거나 정하고, 버튼 한 번. 완성본은 승인함에서 사람이 승인해야 올라갑니다.</p>
+    </div>
+  </div>
+
+  <ol class="stepper" aria-label="원클릭 제작 단계 (클릭 3번 목표)" id="flow">
+    <li class="now" aria-current="step"><span class="n">1</span><span class="t">방식 고르기</span></li>
+    <li><span class="n">2</span><span class="t">소재 (비우면 자동)</span></li>
+    <li><span class="n">3</span><span class="t">원클릭 제작</span></li>
+  </ol>
+
+  <div class="stack">
+    <!-- 1 제작 방식 -->
+    <section class="card" aria-labelledby="s-method">
+      <div class="sec-head">
+        <span class="sec-n" aria-hidden="true">1</span>
+        <h2 id="s-method" class="card-title">제작 방식</h2>
+        <span class="label muted">규칙 파일이 있는 방식만 고를 수 있습니다 (구성 추가 = rules/ 파일 추가)</span>
+        <button class="btn btn-secondary end-btn" type="button" data-open="dlg-import"><i data-i="upload"></i>가져오기</button>
+      </div>
+      <div class="seg-tabs cat-tabs" role="tablist" aria-label="제작 방식 분류">
+        <button role="tab" type="button" data-cat-tab="shorts" aria-selected="true">쇼츠 <span class="count">25</span></button>
+        <button role="tab" type="button" data-cat-tab="long" aria-selected="false">롱폼 <span class="count">3</span></button>
+        <button role="tab" type="button" data-cat-tab="etc" aria-selected="false">기타 <span class="count">1</span></button>
+      </div>
+      <p class="label muted cat-note">탭 개수는 캡처 값입니다(합 29). 문서의 전체 28개와 맞지 않아 <strong>미확인</strong> — 확인된 12개와 가져온 프리셋만 카드로 보입니다.</p>
+      <div class="methods" role="radiogroup" aria-label="제작 방식" id="methods">
+        <label class="method"><input type="radio" name="method" value="한드짜"><span class="m-name">한드짜</span><span class="m-file">rules/drama.md</span><span class="badge b-ok"><i data-i="circlecheck"></i>규칙 있음</span><button type="button" class="btn btn-ghost m-act"><i data-i="download"></i>내보내기</button></label>
+        <label class="method"><input type="radio" name="method" value="1인칭 한드짜"><span class="m-name">1인칭 한드짜</span><span class="m-file">rules/drama-first-person.md</span><span class="badge b-ok"><i data-i="circlecheck"></i>규칙 있음</span><button type="button" class="btn btn-ghost m-act"><i data-i="download"></i>내보내기</button></label>
+        <label class="method" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">큐레이션형</span><span class="m-file">규칙 파일 없음 · 준비 중</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">랭킹형</span><span class="m-file">규칙 파일 없음 · 준비 중</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" title="규칙이 초안이라 아직 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">인물예능형</span><span class="m-file">rules/person-fantube.md (초안) · 준비 중</span><span class="badge b-disk"><i data-i="warn"></i>규칙 초안</span></label>
+        <label class="method"><input type="radio" name="method" value="감동 반전형"><span class="m-name">감동 반전형</span><span class="m-file">rules/touching-reversal.md</span><span class="badge b-ok"><i data-i="circlecheck"></i>규칙 있음</span><button type="button" class="btn btn-ghost m-act"><i data-i="download"></i>내보내기</button></label>
+        <label class="method" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">명언형</span><span class="m-file">규칙 파일 없음 · 준비 중</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">롱투숏 기본형</span><span class="m-file">규칙 파일 없음 · 준비 중</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" title="규칙이 초안이라 아직 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">1분 OO</span><span class="m-file">rules/person-fantube.md (초안) · 준비 중</span><span class="badge b-disk"><i data-i="warn"></i>규칙 초안</span></label>
+        <label class="method" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">시트콤형</span><span class="m-file">규칙 파일 없음 · 준비 중</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">AI 드라마 · 참교육</span><span class="m-file">규칙 파일 없음 · 준비 중</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method imported" title="가져온 프리셋 — 사람이 승인해야 고를 수 있습니다"><input type="radio" name="method" disabled><span class="m-name">잔잔한 회상형</span><span class="m-file">가져온 규칙 파일 · 검사 통과 · 사람 승인 전</span><span class="badge b-disk" title="규칙 필요 → 사람 승인 후 활성"><i data-i="clock"></i>승인 후 활성</span><a class="btn btn-link-sm m-act" href="#">검사·승인</a></label>
+        <!-- 롱폼 -->
+        <label class="method" data-cat="long" title="규칙 파일이 없어 고를 수 없습니다"><input type="radio" name="method" disabled><span class="m-name">국뽕롱폼</span><span class="m-file">규칙 파일 없음 · 분류(롱폼) 확인 필요</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" data-cat="long" title="이름 미확인"><input type="radio" name="method" disabled><span class="m-name">롱폼 방식 (이름 미확인)</span><span class="m-file">캡처에서 판독 불가</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <label class="method" data-cat="long" title="이름 미확인"><input type="radio" name="method" disabled><span class="m-name">롱폼 방식 (이름 미확인)</span><span class="m-file">캡처에서 판독 불가</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+        <!-- 기타 -->
+        <label class="method" data-cat="etc" title="이름 미확인"><input type="radio" name="method" disabled><span class="m-name">기타 방식 (이름 미확인)</span><span class="m-file">캡처에서 판독 불가</span><span class="badge b-nosrc"><i data-i="filex"></i>규칙 필요</span></label>
+      </div>
+      <p class="label muted">규칙 있는 카드의 [내보내기]는 규칙 파일(프리셋) 1개를 저장합니다. [가져오기]한 규칙은 검사 후 <strong>사람이 승인해야</strong> 고를 수 있습니다. 이 밖에 규칙 있는 방식(예능형 · 1인칭 나레이션 · 자체 보유)은 만들기 화면에서 고릅니다.</p>
+    </section>
+
+    <!-- 2 소재 -->
+    <section class="card" aria-labelledby="s-src">
+      <div class="sec-head">
+        <span class="sec-n" aria-hidden="true">2</span>
+        <h2 id="s-src" class="card-title">소재</h2>
+        <span class="label muted">선택 · 비워 두면 레이더 후보를 보여 드리고, 소재는 기획 승인에서 사람이 확정합니다</span>
+      </div>
+
+      <!-- 레이더에서 넘어온 소재 카드 (?from=radar) -->
+      <div class="card radar-card" data-from-view="radar" aria-label="레이더에서 넘어온 소재">
+        <div class="card-head">
+          <span class="badge b-review"><i data-i="radar"></i>레이더에서 넘어옴</span>
+          <span class="badge b-ok" data-rights-view="ok"><i data-i="shield"></i>권리 확인 · licensed</span>
+          <span class="badge b-rights" data-rights-view="unknown"><i data-i="shield"></i>권리 미확인</span>
+          <span class="end score" aria-label="소재 점수 86">86</span>
+        </div>
+        <strong>등대지기 편의점 · E03</strong>
+        <p class="label muted clamp-2">야간 알바생이 단골 손님의 정체를 알아채는 장면 · 갈등 → 뒤집힘 · 추천 방식 한드짜</p>
+        <div class="row">
+          <a class="btn btn-ghost" href="oneclick.html"><i data-i="x"></i>다른 소재로 바꾸기</a>
+        </div>
+      </div>
+
+      <label class="field" data-from-view="none">
+        <span class="sr-only">작품명 또는 원본 링크</span>
+        <input class="input" type="text" id="src" placeholder="작품명 또는 원본 링크 (선택)" autocomplete="off">
+        <span class="hint">방식을 고르면 그 방식에 맞는 후보만 추천합니다. 권리 미확인 작품은 만들 수는 있어도 업로드가 막힙니다.</span>
+      </label>
+    </section>
+
+    <!-- 3 제작 모드 (docs/13 §16 — 승인된 기획안을 영상으로 만드는 실행기) -->
+    <section class="card" aria-labelledby="s-mode">
+      <div class="sec-head">
+        <span class="sec-n" aria-hidden="true">3</span>
+        <h2 id="s-mode" class="card-title">제작 모드</h2>
+        <span class="label muted">승인된 기획안을 영상으로 만드는 방법</span>
+      </div>
+      <div class="modes" role="radiogroup" aria-label="제작 모드">
+        <label class="opt"><input type="radio" name="mode" value="자동제작" checked><span class="radio-dot"></span>
+          <span class="grow"><strong>자동제작</strong> <span class="badge b-review">기본</span><br>
+            <span class="label muted">엔진이 완성본까지 만듭니다. 편수를 늘릴 때. 사람은 완성본만 확인합니다.</span></span>
+        </label>
+        <label class="opt"><input type="radio" name="mode" value="캡컷으로 편집"><span class="radio-dot"></span>
+          <span class="grow"><strong>캡컷으로 편집</strong><br>
+            <span class="label muted">캡컷 편집 묶음을 만들고 편집은 사람이 합니다. 처음 몇 편의 기준을 잡을 때 권장.</span></span>
+        </label>
+        <label class="opt"><input type="radio" name="mode" value="Aside 사용하기"><span class="radio-dot"></span>
+          <span class="grow"><strong>Aside 사용하기</strong> <span class="badge b-nosrc"><i data-i="clock"></i>외부 AI 도구 · 사람 검수 필수</span><br>
+            <span class="label muted">외부 AI 어시스턴트에 맡깁니다. 결과가 매번 달라 사람이 전부 검수합니다. 원본·자막이 외부 서비스로 나갑니다.</span></span>
+        </label>
+      </div>
+      <div class="reason" id="aside-warn" role="alert" hidden><span class="badge b-rights"><i data-i="warn"></i>Aside 미로그인</span><span style="flex: 1">Aside 앱에 로그인되어 있지 않아 이 모드로 시작할 수 없습니다. 로그인은 Aside 앱에서 하고, 여기서는 상태만 확인합니다.</span><a class="btn btn-link-sm" style="min-height: var(--size-touch)" href="settings.html?tab=account">환경설정에서 확인</a></div>
+      <p class="label muted"><i data-i="clock"></i> 세 모드 모두 기획 승인 뒤에 시작합니다. 그 전까지는 기획안·음성·자막까지만 자동으로 채웁니다.</p>
+    </section>
+
+    <!-- 4 업로드 (방식은 환경설정에서 정한다 — 여기서는 읽기 전용) -->
+    <section class="card" aria-labelledby="s-up">
+      <div class="sec-head">
+        <span class="sec-n" aria-hidden="true">4</span>
+        <h2 id="s-up" class="card-title">업로드</h2>
+        <span class="label muted">업로드 방식은 채널마다 환경설정에서 정합니다</span>
+      </div>
+
+      <!-- 등록 채널 없음 (?channels=none) -->
+      <div class="reason" data-channels-view="none" role="note"><i data-i="tv"></i><span>등록된 YouTube 채널이 없습니다. 채널 관리에서 구글 계정을 연결하고 채널을 [등록]하세요. 만들기는 지금 해도 되고, 업로드 전까지만 등록하면 됩니다.</span></div>
+      <a class="btn btn-secondary" data-channels-view="none" href="channels.html"><i data-i="tv"></i>채널 관리 열기</a>
+
+      <div class="up-sum" data-channels-view="some">
+        <span class="grow"><span class="label muted">이 채널의 업로드 방식 (읽기 전용)</span><br>
+          <strong id="up-mode">검수 후 업로드</strong> <span class="badge b-review" id="up-src">전역 기본</span><br>
+          <span class="label muted" id="up-desc">완성본은 승인함으로 갑니다. 내가 [승인]하면 그때 예약됩니다.</span></span>
+        <a class="btn btn-link-sm" href="settings.html?tab=upload"><i data-i="gear"></i>환경설정에서 변경</a>
+      </div>
+      <span class="reason" data-from-view="radar" data-rights-view="unknown" role="note"><i data-i="shield"></i><span>권리 미확인 소재라 채널 설정과 관계없이 업로드가 막힙니다. 승인함에서 권리를 확인하기 전까지 보관됩니다.</span></span>
+
+      <div class="sched" data-channels-view="some">
+        <label class="field"><span class="label muted">채널 (등록된 YouTube 채널)</span>
+          <select class="input" id="channel" aria-label="채널">
+            <option data-mode="검수 후 업로드" data-src="전역 기본">드라마 쇼츠 · ki****@… · ID …k3x7Qa</option>
+            <option data-mode="자동 업로드(채널에서 켬)" data-src="채널 재정의">감동 사연 · ar****@… · ID …Rt2M2p</option>
+          </select>
+        </label>
+        <label class="field"><span class="label muted">첫 예약 시각</span>
+          <input class="input" type="datetime-local" aria-describedby="sched-hint">
+        </label>
+        <label class="field"><span class="label muted">다음 편 간격(시간)</span>
+          <input class="input num" type="number" min="1" value="24">
+        </label>
+      </div>
+      <p class="label muted" id="sched-hint"><i data-i="calendar"></i> 예약은 승인 뒤에 걸립니다. 검수 후 업로드에서도 시각만 미리 정해 두고, [승인]을 누른 순간 예약됩니다. 다음 편 간격은 예약 간격 안내일 뿐이고, 편마다 [승인]한 뒤에만 예약 큐에 들어갑니다.</p>
+    </section>
+
+    <!-- 실행 -->
+    <section aria-label="실행" class="stack">
+      <div class="box">
+        <span class="label">실행 요약</span>
+        <dl class="kv">
+          <dt>방식</dt><dd id="sum-method">아직 고르지 않음</dd>
+          <dt>소재</dt><dd><span data-from-view="none">비움 → 레이더 후보 제시(기획 승인에서 확정)</span><span data-from-view="radar">등대지기 편의점 · E03 (레이더)</span></dd>
+          <dt>제작 모드</dt><dd id="sum-mode">자동제작 · 기획 승인 뒤 시작</dd>
+          <dt>업로드</dt><dd><span id="sum-upload" data-channels-view="some">업로드 대상 채널: 드라마 쇼츠 · ID …k3x7Qa · 검수 후 업로드 · 승인 뒤 예약 (환경설정 값)</span><br><span class="label muted" data-channels-view="some">승인 기록에 이 채널 ID가 함께 남습니다.</span><span data-channels-view="none">채널 없음 — 채널 관리에서 등록</span></dd>
+        </dl>
+      </div>
+      <button class="btn btn-strong btn-block" id="run" aria-disabled="true" aria-describedby="run-hint"><i data-i="zap"></i>원클릭 제작</button>
+      <p class="label muted" id="run-hint">제작 방식을 먼저 고르세요.</p>
+      <a class="btn btn-secondary btn-block only-mobile" href="status.html"><i data-i="activity"></i>최근 제작 기록 보기</a>
+    </section>
+  </div>
+</main>
+
+<aside class="aside" data-label="최근 제작 기록" aria-label="최근 제작 기록">
+  <div class="aside-inner">
+    <div class="aside-head"><h2 class="section-title">지금 제작 상황</h2><a class="btn btn-ghost" href="queue.html">대기 큐</a></div>
+    <div class="sum3" data-state-view="normal">
+      <a href="queue.html"><span class="score">1</span><span class="label muted">제작 중</span></a>
+      <a href="queue.html"><span class="score">2</span><span class="label muted">순서 대기</span></a>
+      <a href="inbox.html"><span class="score">3</span><span class="label muted">승인 대기</span></a>
+    </div>
+    <div class="card run-card" data-state-view="normal"><div class="card-head"><span class="badge b-comp">한드짜</span><strong>등대지기 편의점 · E03</strong><span class="end label muted num">4분</span></div>
+      <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="done"><span class="step-name">원본</span></li><li class="now" aria-current="step"><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+      <div class="row"><span class="label muted">제작 중 · ③ 장면 맞추기</span><button class="btn btn-ghost" data-open="dlg-cancel"><i data-i="x"></i>취소</button></div></div>
+    <div class="card run-card" data-state-view="normal"><div class="card-head"><span class="badge b-comp">감동 반전형</span><strong>여름 끝 체육관 · E05</strong><span class="end label muted num">순서 1</span></div>
+      <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="now" aria-current="step"><span class="step-name">원본</span></li><li><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+      <div class="row"><span class="label muted">순서 대기</span><button class="btn btn-ghost" data-open="dlg-cancel"><i data-i="x"></i>취소</button></div></div>
+
+    <div class="aside-head"><h2 class="section-title">최근 제작 기록 <span class="count">4</span></h2><span class="label muted" aria-live="polite"><i data-i="refresh"></i> 5초마다 갱신</span></div>
+
+    <div class="empty" data-state-view="empty">
+      <i data-i="zap"></i>
+      <p class="card-title">아직 제작 기록이 없습니다</p>
+      <p class="muted label">원클릭 제작을 누르면 여기에 단계별로 표시됩니다.</p>
+    </div>
+
+    <div class="stack" data-state-view="loading" aria-busy="true" aria-label="불러오는 중">
+      <p class="label muted">제작 기록을 불러오는 중…</p>
+      <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div></div>
+      <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div></div>
+    </div>
+
+    <div class="banner" data-state-view="error" role="alert"><i data-i="warn"></i><span class="grow">기록을 불러오지 못했습니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+
+    <div class="stack" data-state-view="normal">
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">한드짜</span><strong>등대지기 편의점 · E03</strong><span class="end label muted num">2분 전</span></div>
+        <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="done"><span class="step-name">원본</span></li><li class="now" aria-current="step"><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+      </div>
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">감동 반전형</span><strong>달빛 수선소 · E05</strong><span class="end label muted num">18분 전</span></div>
+        <span class="badge b-review"><i data-i="scaneye"></i>승인 대기 · 승인함에서 확인</span>
+      </div>
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">1인칭 한드짜</span><strong>유리정원 사무소 · E02</strong><span class="end label muted num">1시간 전</span></div>
+        <span class="badge b-ok"><i data-i="calendar"></i>승인됨 · 11/03 19:00 예약</span>
+      </div>
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">한드짜</span><strong>파도 위 도서관 · E09</strong><span class="end label muted num">3시간 전</span></div>
+        <span class="badge b-rights"><i data-i="shield"></i>권리 미확인 · 업로드 차단(보관)</span>
+      </div>
+    </div>
+    <a class="btn btn-secondary btn-block" href="status.html">전체 현황 보기</a>
+  </div>
+</aside>
+<dialog class="modal" id="dlg-cancel" aria-labelledby="h-cancel">
+  <form method="dialog" class="modal-body">
+    <h2 id="h-cancel" class="card-title">이 작업을 취소할까요?</h2>
+    <p class="label muted">제작 중이면 즉시 멈추고 중간 산출물은 보관함에 남깁니다. 순서 대기면 큐에서 빠집니다. 상태별 자세한 뜻은 대기 큐의 취소 창과 같습니다.</p>
+    <div class="modal-foot"><button class="btn btn-secondary" value="cancel">돌아가기</button><button class="btn btn-danger" value="ok">취소 실행</button></div>
+  </form>
+</dialog>
+<dialog class="modal" id="dlg-import" aria-labelledby="h-import">
+  <form method="dialog" class="modal-body">
+    <h2 id="h-import" class="card-title">제작 방식 가져오기 (프리셋 = 규칙 파일)</h2>
+    <label class="field"><span class="label muted">규칙 파일 (.md)</span><input class="input" type="file" accept=".md"></label>
+    <ul class="log">
+      <li><span><i data-i="check" class="t-ok"></i> 형식 검사 · 공통 규칙(common.md) 충돌 검사</span><span>가져온 뒤 자동</span></li>
+      <li><span><i data-i="shield" class="t-warn"></i> 권리·업로드 게이트를 끄는 문구는 거부</span><span>자동</span></li>
+      <li><span><i data-i="clock" class="muted"></i> 활성화</span><span><strong>사람 승인</strong></span></li>
+    </ul>
+    <p class="label muted">가져온 규칙은 '규칙 필요' 상태로 들어오고, 사람이 검사 결과를 보고 승인해야 카드에서 고를 수 있습니다.</p>
+    <div class="modal-foot"><button class="btn btn-secondary" value="cancel">닫기</button><button class="btn btn-primary" value="ok">가져오기</button></div>
+  </form>
+</dialog>
+<script src="_app.js"></script>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var from = q.get('from') === 'radar' ? 'radar' : 'none';
+    var rights = from === 'radar' && q.get('rights') === 'unknown' ? 'unknown' : 'ok';
+    document.body.dataset.from = from;
+    document.body.dataset.rights = rights;
+    // 쇼츠/롱폼/기타 탭 (?cat=long|etc)
+    var methods = document.getElementById('methods');
+    function cat(c) {
+      methods.dataset.show = c;
+      document.querySelectorAll('[data-cat-tab]').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.catTab === c); });
+    }
+    document.querySelectorAll('[data-cat-tab]').forEach(function (t) { t.addEventListener('click', function () { cat(t.dataset.catTab); }); });
+    cat(['long', 'etc'].indexOf(q.get('cat')) > -1 ? q.get('cat') : 'shorts');
+    document.addEventListener('click', function (e) {
+      var o = e.target.closest('[data-open]'); if (!o) return;
+      e.preventDefault(); document.getElementById(o.dataset.open).showModal();
+    });
+    var noCh = q.get('channels') === 'none';
+    document.body.dataset.channels = noCh ? 'none' : 'some';
+    var variant = q.get('aside') === 'off' ? 'asideoff' : noCh ? 'nochannel' : from === 'none' ? 'none' : rights === 'unknown' ? 'unknown' : 'radar';
+    var ch = document.getElementById('channel');
+    ch.addEventListener('change', function () {
+      var o = ch.selectedOptions[0];
+      document.getElementById('up-mode').textContent = o.dataset.mode;
+      document.getElementById('up-src').textContent = o.dataset.src;
+      var p = o.textContent.split(' · ');
+      document.getElementById('up-desc').textContent = o.dataset.src === '채널 재정의'
+        ? '이 채널은 자동 업로드가 켜져 있습니다. 내가 승인함에서 [승인]하면 추가 클릭 없이 예약됩니다.'
+        : '완성본은 승인함으로 갑니다. 내가 [승인]하면 그때 예약됩니다.';
+      document.getElementById('sum-upload').textContent = '업로드 대상 채널: ' + p[0] + ' · ' + p[2] + ' · ' + o.dataset.mode + ' · 승인 뒤 예약 (환경설정 값)';
+    });
+    document.querySelectorAll('[data-variant]').forEach(function (a) { if (a.dataset.variant === variant) a.setAttribute('aria-current', 'page'); });
+
+    var steps = document.querySelectorAll('#flow li');
+    var run = document.getElementById('run'), hint = document.getElementById('run-hint'), sum = document.getElementById('sum-method');
+    function setStep(i) {
+      steps.forEach(function (li, k) {
+        li.className = k < i ? 'done' : k === i ? 'now' : '';
+        if (k === i) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+      });
+    }
+    function sync() {
+      var m = document.querySelector('input[name="method"]:checked');
+      if (!m) return;
+      sum.textContent = m.value;
+      setStep(2);
+      run.removeAttribute('aria-disabled');
+      hint.textContent = rights === 'unknown'
+        ? '만든 뒤 승인함에 보관됩니다. 권리를 확인하기 전에는 업로드되지 않습니다.'
+        : '누르면 오른쪽 기록에 추가되고, 완성본은 승인함으로 갑니다.';
+    }
+    document.querySelectorAll('input[name="method"]').forEach(function (r) { r.addEventListener('change', sync); });
+    // Aside 로그인 상태 (?aside=off → 미로그인 시연, Aside 모드 미리 선택)
+    var asideOff = q.get('aside') === 'off', warn = document.getElementById('aside-warn');
+    function modeSync(r) {
+      document.getElementById('sum-mode').textContent = r.value + ' · 기획 승인 뒤 시작';
+      warn.hidden = !(asideOff && r.value === 'Aside 사용하기');
+    }
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', function () { modeSync(r); }); });
+    if (asideOff) { var ar = document.querySelector('input[name="mode"][value="Aside 사용하기"]'); ar.checked = true; modeSync(ar); }
+    // 레이더 카드는 추천 방식(한드짜)을 함께 들고 온다 → 남은 클릭 1번
+    if (from === 'radar') document.querySelector('input[name="method"][value="한드짜"]').checked = true;
+    // 홈 빠른 선택 칩 (?method=)
+    var pre = q.get('method') && document.querySelector('input[name="method"][value="' + q.get('method').replace(/"/g, '') + '"]:not(:disabled)');
+    if (pre) pre.checked = true;
+    sync();
+  })();
+</script>
+</body>
+</html>

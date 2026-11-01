@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대기 큐 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  /* 이 화면 전용 — 토큰만 사용 */
+  .slots { display: grid; gap: calc(var(--spacing) * 3); grid-template-columns: minmax(0, 1fr); margin-bottom: calc(var(--spacing) * 4); }
+  @media (width >= 768px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .slot { gap: calc(var(--spacing) * 2); }
+  .slot .k-row { display: flex; align-items: baseline; gap: calc(var(--spacing) * 2); flex-wrap: wrap; }
+  .slot .bar { display: flex; gap: calc(var(--spacing) * 1); }
+  .slot .bar span { flex: 1; height: var(--size-progress); border-radius: var(--radius-pill); background: var(--color-input); }
+  .slot .bar span.on { background: var(--color-primary); }
+
+  .filters { display: flex; gap: calc(var(--spacing) * 2); overflow-x: auto; padding-bottom: calc(var(--spacing) * 1); margin-bottom: calc(var(--spacing) * 3); }
+  .filters .pill { flex: none; }
+  .bulk { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); margin-bottom: calc(var(--spacing) * 3); }
+  .bulk .grow { flex: 1; min-width: calc(var(--spacing) * 30); }
+
+  /* 큐 행: 모바일 카드 / 768~ 한 줄 정렬 */
+  .q-list { display: flex; flex-direction: column; gap: calc(var(--spacing) * 3); }
+  .q { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: auto minmax(0, 1fr); align-items: start; padding: calc(var(--spacing) * 3); }
+  .q.selected { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+  .q .check { margin: calc(var(--spacing) * -2.5) 0 0 calc(var(--spacing) * -2); }
+  .q-main { display: flex; flex-direction: column; gap: calc(var(--spacing) * 1.5); min-width: 0; }
+  .q-title { display: flex; align-items: center; gap: calc(var(--spacing) * 2); flex-wrap: wrap; }
+  .q-title .n { font-weight: 800; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+  .q-title a { font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+  .q-title a:hover { text-decoration: underline; }
+  .q-meta { display: flex; flex-wrap: wrap; gap: calc(var(--spacing) * 1) calc(var(--spacing) * 3); font-size: var(--text-label); color: var(--color-text-muted); }
+  .q-meta b { color: var(--color-text); font-weight: 600; }
+  .inner { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); font-size: var(--text-label); color: var(--color-text-muted); }
+  .inner strong { color: var(--color-text); }
+  .mini { list-style: none; margin: 0; padding: 0; display: inline-flex; gap: calc(var(--spacing) * 0.5); }
+  .mini li { width: calc(var(--spacing) * 4); height: calc(var(--spacing) * 1.5); border-radius: var(--radius-pill); background: var(--color-input); }
+  .mini li.done { background: var(--color-success); }
+  .mini li.now { background: var(--color-primary); }
+  .q-ctl { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: calc(var(--spacing) * 1); border-top: 1px solid var(--color-border); padding-top: calc(var(--spacing) * 2); }
+  .q-ctl .icon-btn { border: 1px solid var(--color-border); }
+  .q-ctl .icon-btn[aria-disabled="true"] { color: var(--color-disabled-fg); background: var(--color-disabled); border-color: transparent; cursor: not-allowed; }
+  .slot-tag { font-size: var(--text-label); font-weight: 600; }
+  @media (width >= 768px) {
+    .q { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+    .q-ctl { grid-column: auto; border-top: 0; padding-top: 0; justify-content: flex-end; max-width: calc(var(--spacing) * 60); }
+  }
+
+  .group { padding: 0; gap: 0; }
+  .group > summary { padding: 0 calc(var(--spacing) * 4); color: var(--color-text); font-size: var(--text-body); gap: calc(var(--spacing) * 2); flex-wrap: wrap; }
+  .group > summary .ico { transition: transform var(--duration-fast) var(--ease-standard); }
+  .group[open] > summary .ico:first-child { transform: rotate(180deg); }
+  .group .q-list { padding: 0 calc(var(--spacing) * 3) calc(var(--spacing) * 3); }
+
+  .note { padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3); border-radius: var(--radius-control); background: var(--color-info-subtle); color: var(--color-info-subtle-fg); font-size: var(--text-label); display: flex; gap: calc(var(--spacing) * 1.5); align-items: flex-start; }
+  body[data-filter] .q[data-f]:not(.match) { display: none; }
+</style>
+</head>
+<body data-page="queue">
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">불러오는 중</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">대기 큐</h1>
+      <p class="page-sub muted">여러 영상을 동시에 만듭니다. AI 단계는 병렬, 렌더는 한 번에 하나씩. 데이터는 가상입니다.</p>
+    </div>
+    <a class="btn btn-secondary" href="oneclick.html"><i data-i="plus"></i>원클릭 제작에서 추가</a>
+  </div>
+
+  <!-- 슬롯 2종 -->
+  <div class="slots" data-state-view="normal error">
+    <section class="card slot" aria-label="AI 단계 슬롯">
+      <div class="card-head"><span class="label muted">AI 단계 슬롯 · 병렬</span><a class="btn btn-ghost end" href="settings.html?tab=ai"><i data-i="gear"></i>설정</a></div>
+      <div class="k-row"><span class="score">2/3</span><span class="label muted">기본값 <em>미확인</em> · 사람 대기 작업은 슬롯을 쓰지 않음</span></div>
+      <div class="bar" aria-hidden="true"><span class="on"></span><span class="on"></span><span></span></div>
+    </section>
+    <section class="card slot" aria-label="렌더 슬롯">
+      <div class="card-head"><span class="label muted">렌더 (GPU · ffmpeg) 슬롯 · 직렬</span><span class="badge b-comp end">고정</span></div>
+      <div class="k-row"><span class="score">1/1</span><span class="label muted">한 번에 1편만 렌더 · 다음 렌더 대기 1</span></div>
+      <div class="bar" aria-hidden="true"><span class="on"></span></div>
+    </section>
+  </div>
+
+  <div class="banner" data-state-view="error" role="alert" style="margin-bottom: calc(var(--spacing) * 4)"><i data-i="warn"></i><span class="grow">큐 상태를 불러오지 못했습니다. 아래는 14:15 기준이며 조작이 막혀 있습니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+  <p class="note" data-state-view="normal" role="note" style="margin-bottom: calc(var(--spacing) * 3)"><i data-i="gauge"></i><span>AI 한도에 걸리면 큐 전체가 정지됩니다(환경설정 › AI API). 지금은 정상입니다 — 아래 '파도 위 도서관 E12'만 업로드 쿼터로 대기 중.</span></p>
+
+  <div class="filters" role="group" aria-label="상태 필터" data-state-view="normal error">
+    <button class="pill" data-filter="all" aria-pressed="true">전체 <span class="num">10</span></button>
+    <button class="pill" data-filter="run" aria-pressed="false">제작 중 <span class="num">3</span></button>
+    <button class="pill" data-filter="wait" aria-pressed="false">대기 <span class="num">4</span></button>
+    <button class="pill" data-filter="human" aria-pressed="false">사람 대기 <span class="num">2</span></button>
+    <button class="pill" data-filter="pause" aria-pressed="false">일시정지 <span class="num">0</span></button>
+    <button class="pill" data-filter="fail" aria-pressed="false">실패 <span class="num">1</span></button>
+    <button class="pill" data-filter="done" aria-pressed="false">완료 <span class="num">0</span></button>
+  </div>
+
+  <div class="bulk" data-state-view="normal error" aria-live="polite">
+    <span class="grow label"><strong id="sel-n" class="num">0</strong>개 선택</span>
+    <button class="btn btn-secondary" data-bulk aria-disabled="true"><i data-i="top"></i>맨 앞으로</button>
+    <button class="btn btn-secondary" data-bulk aria-disabled="true"><i data-i="pause"></i>일시정지</button>
+    <button class="btn btn-secondary" data-bulk aria-disabled="true"><i data-i="play"></i>재개</button>
+    <button class="btn btn-secondary" data-bulk data-open="dlg-cancel" aria-disabled="true"><i data-i="x"></i>취소</button>
+  </div>
+
+  <div class="empty" data-state-view="empty"><i data-i="layers"></i><p class="card-title">대기 중인 작업이 없습니다</p><p class="muted label">원클릭 제작이나 레이더 후보에서 작업을 추가하면 여기서 순서를 정할 수 있습니다.</p><a class="btn btn-primary" href="oneclick.html"><i data-i="plus"></i>원클릭 제작에서 추가</a></div>
+  <div class="q-list" data-state-view="loading" aria-busy="true" aria-label="큐 불러오는 중">
+    <div class="card"><div class="skel w40"></div><div class="skel w90"></div><div class="skel w70"></div></div>
+    <div class="card"><div class="skel w40"></div><div class="skel w90"></div><div class="skel w70"></div></div>
+  </div>
+
+  <div class="q-list" id="jobs" data-state-view="normal error">
+    <!-- 1 제작 중 (AI 슬롯) -->
+    <article class="card q selected" data-f="run">
+      <label class="check"><input type="checkbox" aria-label="1번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">1</span><a href="#detail" data-detail>달빛 수선소 · E04</a><span class="badge b-comp">한드짜</span><span class="badge b-review"><i data-i="loader" class="spin"></i>제작 중</span></div>
+        <div class="q-meta"><span>모드 <b>자동제작</b></span><span>소재 <b>자동 추천</b></span><span>채널 <b>드라마 쇼츠 …k3x7Qa</b></span><span class="num"><i data-i="clock"></i> 11분 7초</span><span class="slot-tag">AI 슬롯 사용</span></div>
+        <div class="inner"><ol class="mini" aria-hidden="true"><li class="done"></li><li class="done"></li><li class="now"></li><li></li><li></li><li></li></ol><span>내부 <strong>③ 장면 맞추기</strong> · <span class="num">3/6</span></span></div>
+      </div>
+      <div class="q-ctl" aria-label="1번 조작">
+        <button class="icon-btn" aria-label="위로" aria-disabled="true"><i data-i="up"></i></button><button class="icon-btn" aria-label="아래로"><i data-i="down"></i></button><button class="icon-btn" aria-label="맨 앞으로" aria-disabled="true"><i data-i="top"></i></button><button class="icon-btn" aria-label="일시정지"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button>
+      </div>
+    </article>
+
+    <!-- 2 렌더 중 (렌더 슬롯) -->
+    <article class="card q" data-f="run">
+      <label class="check"><input type="checkbox" aria-label="2번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">2</span><a href="#detail" data-detail>유리정원 사무소 · E09</a><span class="badge b-comp">감동 반전형</span><span class="badge b-review"><i data-i="loader" class="spin"></i>렌더 중</span></div>
+        <div class="q-meta"><span>모드 <b>자동제작</b></span><span>소재 <b>직접 지정</b></span><span>채널 <b>감동 사연 …Rt2M2p</b></span><span class="num"><i data-i="clock"></i> 34분</span><span class="slot-tag">렌더 슬롯 사용</span></div>
+        <div class="inner"><ol class="mini" aria-hidden="true"><li class="done"></li><li class="done"></li><li class="done"></li><li class="done"></li><li class="done"></li><li class="now"></li></ol><span>내부 <strong>⑥ 렌더</strong> · <span class="num">6/6</span></span></div>
+      </div>
+      <div class="q-ctl" aria-label="2번 조작">
+        <button class="icon-btn" aria-label="위로"><i data-i="up"></i></button><button class="icon-btn" aria-label="아래로"><i data-i="down"></i></button><button class="icon-btn" aria-label="맨 앞으로"><i data-i="top"></i></button><button class="icon-btn" aria-label="일시정지"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button>
+      </div>
+    </article>
+
+    <!-- 3 업로드 중 -->
+    <article class="card q" data-f="run">
+      <label class="check"><input type="checkbox" aria-label="3번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">3</span><a href="#detail" data-detail>유리정원 사무소 · E06</a><span class="badge b-comp">한드짜</span><span class="badge b-review"><i data-i="loader" class="spin"></i>업로드 중 · 자동 재시도 안 함</span></div>
+        <div class="q-meta"><span>모드 <b>캡컷으로 편집</b></span><span>소재 <b>레이더</b></span><span>채널 <b>드라마 쇼츠 …k3x7Qa</b></span><span class="num"><i data-i="clock"></i> 2분</span><span class="slot-tag muted">슬롯 비점유</span></div>
+        <div class="inner"><span>승인됨 · 예약 걸기 중. 실패하면 중복 업로드를 막기 위해 사람이 확인 후 다시 시도합니다.</span></div>
+      </div>
+      <div class="q-ctl" aria-label="3번 조작">
+        <button class="icon-btn" aria-label="일시정지 (업로드 중에는 불가)" aria-disabled="true"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소 (업로드 중에는 불가)" aria-disabled="true"><i data-i="x"></i></button>
+      </div>
+    </article>
+
+    <!-- 일괄 제작 묶음 -->
+    <details class="card group" open>
+      <summary><i data-i="chevron"></i><strong>일괄 묶음 B-12</strong><span class="label muted">같은 링크 1개 → 모드별 3편</span><span class="badge b-comp">3작업</span></summary>
+      <div class="q-list">
+        <article class="card q" data-f="human">
+          <label class="check"><input type="checkbox" aria-label="4번 선택"></label>
+          <div class="q-main">
+            <div class="q-title"><span class="n">4</span><a href="#detail" data-detail>서쪽 정류장의 겨울 · E03 (A)</a><span class="badge b-comp">1인칭 한드짜</span><span class="badge b-review"><i data-i="scaneye"></i>기획 승인 대기</span></div>
+            <div class="q-meta"><span>모드 <b>자동제작</b></span><span>소재 <b>링크</b></span><span>채널 <b>드라마 쇼츠 …k3x7Qa</b></span><span class="num"><i data-i="clock"></i> 52분</span><span class="slot-tag muted">슬롯 비점유</span></div>
+            <div class="inner"><ol class="mini" aria-hidden="true"><li class="done"></li><li class="done"></li><li class="done"></li><li class="done"></li><li></li><li></li></ol><span>내부 <strong>④ 목소리·자막 완료</strong> · 사람 승인 기다림</span></div>
+          </div>
+          <div class="q-ctl" aria-label="4번 조작"><a class="btn btn-link-sm" href="gate-title.html" style="min-height: var(--size-touch)">기획 승인하러 가기</a><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+        </article>
+        <article class="card q" data-f="wait">
+          <label class="check"><input type="checkbox" aria-label="5번 선택"></label>
+          <div class="q-main">
+            <div class="q-title"><span class="n">5</span><a href="#detail" data-detail>서쪽 정류장의 겨울 · E03 (B)</a><span class="badge b-comp">1인칭 한드짜</span><span class="badge b-nosrc"><i data-i="clock"></i>대기</span></div>
+            <div class="q-meta"><span>모드 <b>캡컷으로 편집</b></span><span>소재 <b>링크</b></span><span>채널 <b>드라마 쇼츠 …k3x7Qa</b></span><span class="num">대기 순번 1</span></div>
+          </div>
+          <div class="q-ctl" aria-label="5번 조작"><button class="icon-btn" aria-label="위로"><i data-i="up"></i></button><button class="icon-btn" aria-label="아래로"><i data-i="down"></i></button><button class="icon-btn" aria-label="맨 앞으로"><i data-i="top"></i></button><button class="icon-btn" aria-label="일시정지"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+        </article>
+        <article class="card q" data-f="wait">
+          <label class="check"><input type="checkbox" aria-label="6번 선택"></label>
+          <div class="q-main">
+            <div class="q-title"><span class="n">6</span><a href="#detail" data-detail>서쪽 정류장의 겨울 · E03 (C)</a><span class="badge b-comp">1인칭 한드짜</span><span class="badge b-disk"><i data-i="disk"></i>디스크 부족</span></div>
+            <div class="q-meta"><span>모드 <b>Aside 사용하기</b></span><span>소재 <b>링크</b></span><span>채널 <b>드라마 쇼츠 …k3x7Qa</b></span><span class="num">대기 순번 2</span></div>
+          </div>
+          <div class="q-ctl" aria-label="6번 조작"><button class="icon-btn" aria-label="위로"><i data-i="up"></i></button><button class="icon-btn" aria-label="아래로"><i data-i="down"></i></button><button class="icon-btn" aria-label="맨 앞으로"><i data-i="top"></i></button><button class="icon-btn" aria-label="일시정지"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+        </article>
+      </div>
+    </details>
+
+    <article class="card q" data-f="wait">
+      <label class="check"><input type="checkbox" aria-label="7번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">7</span><a href="#detail" data-detail>파도 위 도서관 · E12</a><span class="badge b-comp">한드짜</span><span class="badge b-disk"><i data-i="gauge"></i>업로드 쿼터 대기</span><span class="badge b-rights"><i data-i="shield"></i>권리 미확인 · 업로드 차단</span></div>
+        <div class="q-meta"><span>모드 <b>자동제작</b></span><span>소재 <b>레이더</b></span><span>채널 <b>짧은 반전 …Wv5n0e</b></span><span class="num">대기 순번 3</span></div>
+      </div>
+      <div class="q-ctl" aria-label="7번 조작"><button class="icon-btn" aria-label="위로"><i data-i="up"></i></button><button class="icon-btn" aria-label="아래로"><i data-i="down"></i></button><button class="icon-btn" aria-label="맨 앞으로"><i data-i="top"></i></button><button class="icon-btn" aria-label="일시정지"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+    </article>
+
+    <article class="card q" data-f="wait">
+      <label class="check"><input type="checkbox" aria-label="8번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">8</span><a href="#detail" data-detail>여름 끝 체육관 · E06</a><span class="badge b-comp">감동 반전형</span><span class="badge b-disk"><i data-i="gauge"></i>AI 한도 대기</span></div>
+        <div class="q-meta"><span>모드 <b>자동제작</b></span><span>소재 <b>자동 추천</b></span><span>채널 <b>감동 사연 …Rt2M2p</b></span><span class="num">대기 순번 4</span></div>
+      </div>
+      <div class="q-ctl" aria-label="8번 조작"><button class="icon-btn" aria-label="위로"><i data-i="up"></i></button><button class="icon-btn" aria-label="아래로" aria-disabled="true"><i data-i="down"></i></button><button class="icon-btn" aria-label="맨 앞으로"><i data-i="top"></i></button><button class="icon-btn" aria-label="일시정지"><i data-i="pause"></i></button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+    </article>
+
+    <article class="card q" data-f="human">
+      <label class="check"><input type="checkbox" aria-label="9번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">9</span><a href="#detail" data-detail>구름다리 하숙집 · E02</a><span class="badge b-comp">한드짜</span><span class="badge b-rights"><i data-i="refresh"></i>재연결 필요 (blocked_auth)</span></div>
+        <div class="q-meta"><span>모드 <b>자동제작</b></span><span>채널 <b>짧은 반전 …Wv5n0e</b></span><span class="num"><i data-i="clock"></i> 1시간 10분</span><span class="slot-tag muted">슬롯 비점유</span></div>
+        <div class="inner"><span>승인됨 · 채널 인증이 막혀 예약이 멈췄습니다.</span></div>
+      </div>
+      <div class="q-ctl" aria-label="9번 조작"><a class="btn btn-link-sm" href="channels.html" style="min-height: var(--size-touch)"><i data-i="refresh"></i>채널 재연결</a><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+    </article>
+
+    <article class="card q" data-f="fail">
+      <label class="check"><input type="checkbox" aria-label="10번 선택"></label>
+      <div class="q-main">
+        <div class="q-title"><span class="n">10</span><a href="#detail" data-detail>등대지기 편의점 · E04</a><span class="badge b-comp">한드짜</span><span class="badge b-rights"><i data-i="x"></i>실패</span></div>
+        <div class="q-meta"><span>모드 <b>자동제작</b></span><span>채널 <b>드라마 쇼츠 …k3x7Qa</b></span><span class="num"><i data-i="clock"></i> 8분</span></div>
+        <div class="inner"><ol class="mini" aria-hidden="true"><li class="done"></li><li class="now"></li><li></li><li></li><li></li><li></li></ol><span>내부 <strong>② 대본·제목</strong>에서 멈춤 · AI 응답 형식 오류</span></div>
+      </div>
+      <div class="q-ctl" aria-label="10번 조작"><button class="btn btn-secondary"><i data-i="refresh"></i>재시도</button><button class="icon-btn" aria-label="취소" data-open="dlg-cancel"><i data-i="x"></i></button></div>
+    </article>
+  </div>
+</main>
+
+<!-- 우측 상세 패널 (데스크톱 고정 열 · 태블릿 드로어) -->
+<aside class="aside" data-label="선택한 작업" aria-label="선택한 작업 상세">
+  <div class="aside-inner" id="detail">
+    <div class="aside-head"><h2 class="section-title">선택한 작업</h2><span class="label muted"><i data-i="refresh"></i> 3초마다 갱신</span></div>
+    <div class="card">
+      <div class="card-head"><span class="badge b-comp">한드짜</span><strong>달빛 수선소 · E04</strong></div>
+      <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="done"><span class="step-name">원본</span></li><li class="now" aria-current="step"><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+      <dl class="kv">
+        <dt>제작 모드</dt><dd>자동제작</dd>
+        <dt>소재 모드</dt><dd>자동 추천</dd>
+        <dt>업로드 채널</dt><dd class="num">드라마 쇼츠 · ID …k3x7Qa</dd>
+        <dt>슬롯</dt><dd>AI 단계 슬롯 1개 사용</dd>
+        <dt>큐 순번</dt><dd class="num">1 / 10</dd>
+      </dl>
+    </div>
+    <h3 class="label muted">내부 6단계</h3>
+    <ul class="log">
+      <li><span><i data-i="check" class="t-ok"></i> ① 받아쓰기</span><span class="num">2분 10초</span></li>
+      <li><span><i data-i="check" class="t-ok"></i> ② 대본·제목</span><span class="num">4분 2초</span></li>
+      <li><span><i data-i="loader" class="spin"></i> <strong>③ 장면 맞추기</strong></span><span class="num">4분 55초</span></li>
+      <li class="muted"><span>④ 목소리·자막</span><span>대기</span></li>
+      <li class="muted"><span>★ 기획 승인 (사람)</span><span>대기</span></li>
+      <li class="muted"><span>⑤ 자동 검수 · ⑥ 렌더</span><span>대기</span></li>
+    </ul>
+    <div class="row"><button class="btn btn-secondary"><i data-i="pause"></i>일시정지</button><button class="btn btn-ghost" data-open="dlg-cancel"><i data-i="x"></i>취소</button></div>
+  </div>
+</aside>
+
+<!-- 취소 확인 -->
+<dialog class="modal" id="dlg-cancel" aria-labelledby="h-cancel">
+  <form method="dialog" class="modal-body">
+    <h2 id="h-cancel" class="card-title">작업을 취소할까요?</h2>
+    <p class="label muted">상태에 따라 취소의 뜻이 다릅니다.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>지금 상태</th><th>취소하면</th></tr></thead>
+      <tbody>
+        <tr><td>대기 · 일시정지</td><td>큐에서 빠집니다. 만든 것 없음.</td></tr>
+        <tr><td>제작 중 · 렌더 중</td><td>즉시 멈추고 중간 산출물은 보관함에 남깁니다. 슬롯이 풀립니다.</td></tr>
+        <tr><td>사람 대기</td><td>기획안·음성·자막을 보관하고 큐에서 뺍니다.</td></tr>
+        <tr><td>업로드 중</td><td>취소할 수 없습니다. 끝난 뒤 결과를 보고 판단하세요.</td></tr>
+        <tr><td>예약됨</td><td><strong>YouTube의 예약 영상을 원격 삭제</strong>합니다. 사람이 한 번 더 확인해야 실행됩니다.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="modal-foot"><button class="btn btn-secondary" value="cancel">돌아가기</button><button class="btn btn-danger" value="ok">취소 실행</button></div>
+  </form>
+</dialog>
+
+<script src="_app.js"></script>
+<script>
+  (function () {
+    // 필터
+    document.querySelectorAll('[data-filter]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('[data-filter]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+        var f = b.dataset.filter;
+        if (f === 'all') { delete document.body.dataset.filter; return; }
+        document.body.dataset.filter = f;
+        document.querySelectorAll('.q[data-f]').forEach(function (q) { q.classList.toggle('match', q.dataset.f === f); });
+      });
+    });
+    // 일괄 선택
+    var boxes = document.querySelectorAll('#jobs .check input');
+    function sync() {
+      var n = Array.prototype.filter.call(boxes, function (c) { return c.checked; }).length;
+      document.getElementById('sel-n').textContent = n;
+      document.querySelectorAll('[data-bulk]').forEach(function (b) { if (n) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); });
+    }
+    boxes.forEach(function (c) { c.addEventListener('change', sync); });
+    // 행 선택 → 상세
+    document.querySelectorAll('[data-detail]').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelectorAll('.q.selected').forEach(function (q) { q.classList.remove('selected'); });
+        a.closest('.q').classList.add('selected');
+        if (window.matchMedia('(width < 1200px)').matches) { var t = document.querySelector('.topbar [data-act="drawer"]'); if (t && innerWidth >= 768) t.click(); }
+      });
+    });
+    // 확인 모달
+    document.addEventListener('click', function (e) {
+      var o = e.target.closest('[data-open]'); if (!o || o.getAttribute('aria-disabled') === 'true') return;
+      e.preventDefault(); document.getElementById(o.dataset.open).showModal();
+    });
+  })();
+</script>
+</body>
+</html>

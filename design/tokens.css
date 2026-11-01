@@ -1,0 +1,133 @@
+/* tokens.css — CineDram Studio 운영 화면 디자인 시스템 정답 소스 (Tailwind CSS v4.3.3, CSS 우선 설정)
+   DESIGN_TOKENS.md 표는 design-preview --md 로 재생성한다. 손으로 고치지 않는다.
+   다크 전환은 <html class="dark"> 한 가지로 통일. 컴포넌트에는 hex·px를 쓰지 않고 이 토큰만 쓴다.
+   (추정) 표시 값은 벤치마크 캡처(_원본_무료판/images, 꿀통레이더 화면)에서 눈으로 추정한 값 — 사람 확정 대기. */
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* 색 — 바탕·글자 (중립 회색, 추정) */
+  --color-bg: #ffffff;
+  --color-surface: #f5f6f8;      /* 사이드바·탭바·패널 */
+  --color-text: #1c2230;
+  --color-text-muted: #566072;
+  --color-border: #e3e6eb;       /* 카드 1px 테두리·구분선 */
+  --color-input: #7b8496;        /* 입력창·체크박스 경계 3:1 (WCAG 1.4.11), 진행바 미완 단계 */
+  --color-focus: #2160e0;
+
+  /* 색 — 행동 (프라이머리 파랑, 추정 — 사람 확정 대기) */
+  --color-primary: #2160e0;      /* 선택된 필터 필·주 버튼·큰 점수 숫자 */
+  --color-primary-fg: #ffffff;
+  --color-strong: #1c2230;       /* 검정 CTA 변형 — 순검정 대신 본문 글자색 */
+  --color-strong-fg: #ffffff;
+  --color-disabled: #eceef1;     /* "준비 중" 회색 비활성 버튼 */
+  --color-disabled-fg: #5f6778;
+  --color-danger: #c42d34;
+  --color-danger-fg: #ffffff;
+  --color-success: #1a7a48;
+  --color-success-fg: #ffffff;
+
+  /* 색 — 칩·배지 (옅은 바탕 + 진한 글자, 상태 배지는 아이콘·텍스트와 함께만) */
+  --color-info-subtle: #e8effd;        /* 업로드 검토 필요 · 파랑 소형 링크 버튼 · 사이드바 선택 항목 */
+  --color-info-subtle-fg: #1a4fbf;
+  --color-success-subtle: #e2f3e9;     /* 제작 가능 */
+  --color-success-subtle-fg: #145c37;
+  --color-neutral-subtle: #eceef1;     /* 원본 없음 · 비선택 필 · 구성 배지 */
+  --color-neutral-subtle-fg: #3f4655;
+  --color-danger-subtle: #fde8e8;      /* 권리 미확인 */
+  --color-danger-subtle-fg: #a61f26;
+  --color-warning-subtle: #fdeedc;     /* 디스크 부족 (주황) */
+  --color-warning-subtle-fg: #8a4300;
+
+  /* 서체 — 한국어 본문 Pretendard (사람 확정 대기), 숫자는 같은 서체 + tabular-nums */
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+
+  /* 글자 크기 — 모바일(~767) 기준값. 태블릿·데스크톱은 아래 @media (docs/03 폰트 토큰 + 점수 숫자) */
+  --text-page-title: 22px;
+  --text-page-title--line-height: 1.3;
+  --text-card-title: 16px;
+  --text-card-title--line-height: 1.4;
+  --text-body: 14px;
+  --text-body--line-height: 1.6;
+  --text-label: 12px;
+  --text-label--line-height: 1.4;
+  --text-score: 26px;            /* 큰 점수 숫자(추정, 카드 제목의 약 1.6배) */
+  --text-score--line-height: 1.1;
+
+  /* 간격 · 크기 · 밀도 */
+  --spacing: 4px;                /* 카드 안 여백 ×4, 카드 그리드 간격 ×4 (추정) */
+  --size-touch: 44px;            /* 영상 확인·승인·수정 요청·다시 만들기 최소 높이, 모바일 모든 탭 영역 */
+  --size-control: 36px;          /* 데스크톱 보조 버튼 시각 높이 (추정) — 터치 영역은 --size-touch 유지 */
+  --size-pill: 28px;             /* 필터 필 시각 높이 (추정) */
+  --size-chip: 20px;             /* 칩·배지 최소 높이 (추정) */
+  --size-row: 44px;              /* 목록 행 — 기본 밀도 */
+  --size-row-compact: 32px;      /* 사이드바 항목·데스크톱 표 — 컴팩트 밀도 (추정) */
+  --size-sidebar: 232px;         /* 좌측 고정 사이드바 폭 (추정) */
+  --size-tabbar: 36px;           /* 상단 열린 화면 탭바 높이 (추정) */
+  --size-progress: 6px;
+
+  /* 반경 — 위계별 (추정) */
+  --radius-badge: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-sheet: 14px;
+  --radius-pill: 9999px;         /* 필터 필 · 토스트 */
+
+  /* 그림자 — 카드는 테두리 + 아주 옅은 그림자, 떠 있는 층(토스트·드로어)만 overlay */
+  --shadow-card: 0 1px 2px rgb(28 34 48 / 0.05);
+  --shadow-overlay: 0 6px 20px rgb(28 34 48 / 0.14);
+
+  /* 모션 — 사용자 행동 응답만 */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 태블릿 768~1199 */
+@media (width >= 768px) {
+  :root { --text-page-title: 26px; --text-card-title: 18px; --text-body: 15px; --text-label: 13px; --text-score: 30px; }
+}
+/* 데스크톱 1200~ */
+@media (width >= 1200px) {
+  :root { --text-page-title: 32px; --text-card-title: 20px; --text-body: 16px; --text-label: 14px; --text-score: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-base: 0ms; }
+}
+
+/* 다크 — 네이비 (벤치마크 인물선점 화면 추정) */
+.dark {
+  --color-bg: #0f1729;
+  --color-surface: #172138;
+  --color-text: #e6ebf5;
+  --color-text-muted: #9eabc4;
+  --color-border: #26324e;
+  --color-input: #6b7a99;
+  --color-focus: #6fa0ff;
+
+  --color-primary: #6fa0ff;
+  --color-primary-fg: #0c1630;
+  --color-strong: #e6ebf5;
+  --color-strong-fg: #0f1729;
+  --color-disabled: #222d47;
+  --color-disabled-fg: #9aa6bd;
+  --color-danger: #ff8a8f;
+  --color-danger-fg: #330b0e;
+  --color-success: #5fd394;
+  --color-success-fg: #0b2a1a;
+
+  --color-info-subtle: #1c2f5c;
+  --color-info-subtle-fg: #b9cfff;
+  --color-success-subtle: #133a2c;
+  --color-success-subtle-fg: #9be4bb;
+  --color-neutral-subtle: #232e47;
+  --color-neutral-subtle-fg: #c7cfdf;
+  --color-danger-subtle: #4a1c26;
+  --color-danger-subtle-fg: #ffbcbf;
+  --color-warning-subtle: #45300f;
+  --color-warning-subtle-fg: #f8c77a;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-overlay: 0 6px 20px rgb(0 0 0 / 0.5);
+}

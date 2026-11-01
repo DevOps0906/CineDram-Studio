@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.dart_tool/
+.nomad/
+*.lock
+pnpm-lock.yaml
+package-lock.json
+*.pem
+*.key
+*.p12
+*.pfx

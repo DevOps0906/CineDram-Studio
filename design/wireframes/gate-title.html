@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관문 ② 제목 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+</head>
+<body data-page="gate-title">
+<main class="main">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">관문 ② 제목</h1>
+      <p class="page-sub muted"><span class="badge b-comp">한드짜</span> 달빛 수선소 · E04 · 후보 1 "10년 전 편지"</p>
+    </div>
+  </div>
+
+  <div class="titles">
+    <!-- 후보 목록 -->
+    <div class="stack">
+      <section class="card" aria-labelledby="t-flow">
+        <div class="card-head"><h2 id="t-flow" class="card-title">흐름 4줄</h2><button class="btn btn-link-sm end" data-act="sheet"><i data-i="pencil"></i>수정</button></div>
+        <ol class="log" style="list-style: decimal inside">
+          <li>수선 맡긴 코트에서 낡은 편지가 나온다</li>
+          <li>사장은 주인을 찾아 동네를 돈다</li>
+          <li>편지 속 이름이 사장 자신의 이름이다</li>
+          <li>주인이 먼저 고개를 돌린다</li>
+        </ol>
+      </section>
+
+      <section class="card" aria-labelledby="t-hook">
+        <h2 id="t-hook" class="card-title">후킹 2</h2>
+        <div class="stack" role="radiogroup" aria-label="후킹">
+          <label class="opt"><input type="radio" name="hook" checked><span class="radio-dot"></span><span class="grow">"이 편지, 10년 동안 아무도 안 열어봤대요"</span></label>
+          <label class="opt"><input type="radio" name="hook"><span class="radio-dot"></span><span class="grow">"코트 하나 고치러 왔다가 인생이 뒤집혔다"</span></label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="t-title">
+        <h2 id="t-title" class="card-title">제목 3</h2>
+        <div class="stack" role="radiogroup" aria-label="제목">
+          <label class="opt"><input type="radio" name="title" checked><span class="radio-dot"></span><span class="grow">수선집 사장이 편지를 읽자마자 얼어붙은 이유</span><button class="icon-btn" type="button" data-act="sheet" aria-label="제목 1 수정"><i data-i="pencil"></i></button></label>
+          <label class="opt"><input type="radio" name="title"><span class="radio-dot"></span><span class="grow">10년 만에 돌아온 코트 속 편지의 주인</span><button class="icon-btn" type="button" data-act="sheet" aria-label="제목 2 수정"><i data-i="pencil"></i></button></label>
+          <label class="opt"><input type="radio" name="title"><span class="radio-dot"></span><span class="grow">편지 속 이름을 본 순간, 가게 문이 잠겼다</span><button class="icon-btn" type="button" data-act="sheet" aria-label="제목 3 수정"><i data-i="pencil"></i></button></label>
+        </div>
+      </section>
+    </div>
+
+    <!-- 수정 영역: 모바일은 하단 시트, 태블릿 이상은 우측 칸 -->
+    <div class="sheet-scrim" data-act="sheet"></div>
+    <section class="card sheet" aria-labelledby="t-edit">
+      <div class="card-head"><h2 id="t-edit" class="card-title">선택안 수정</h2><button class="icon-btn end sheet-close" data-act="sheet" aria-label="닫기"><i data-i="close"></i></button></div>
+      <label class="field"><span class="label muted">후킹</span><textarea class="input" rows="2">이 편지, 10년 동안 아무도 안 열어봤대요</textarea></label>
+      <label class="field"><span class="label muted">제목</span><textarea class="input" rows="2">수선집 사장이 편지를 읽자마자 얼어붙은 이유</textarea><span class="hint num">22 / 40자 · 채널 꼬리 스타일 미적용</span></label>
+      <div class="row"><button class="btn btn-secondary">되돌리기</button><button class="btn btn-primary" style="flex: 1">이 제목으로 진행</button></div>
+    </section>
+  </div>
+</main>
+
+<aside class="aside" data-label="미리보기" aria-label="미리보기">
+  <div class="aside-inner">
+    <h2 class="section-title">미리보기 (9:16)</h2>
+    <div class="video title-preview"><span class="overlay">수선집 사장이 편지를 읽자마자 얼어붙은 이유</span><span class="label">영상 자리 · 썸네일 없음(시안)</span></div>
+    <p class="label muted">후킹은 첫 2초 자막으로, 제목은 업로드 제목으로 쓰입니다.</p>
+  </div>
+</aside>
+<script src="_app.js"></script>
+</body>
+</html>

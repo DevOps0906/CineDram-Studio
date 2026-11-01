@@ -1,0 +1,33 @@
+flowchart TB
+  START(["[원클릭 제작] 버튼<br/>방식·소재·업로드 방식 입력"])
+  subgraph AUTO1["자동 구간 1 (버튼 한 번)"]
+    A1["① 받아쓰기<br/>원본 → SRT"] --> A2["② 대본·제목 초안<br/>소재 3개 · 흐름 4줄 · 후킹 · 제목 후보"]
+  end
+  subgraph HUMAN1["사람 게이트 1"]
+    G1{"관문 ① 소재 선택"} --> G2{"관문 ② 제목 선택"}
+  end
+  subgraph AUTO2["자동 구간 2 (관문 ②까지 통과 후)"]
+    B1["③ 장면 맞추기<br/>컷표.json 초안"] --> B2["④ 목소리·자막<br/>tts-plan → TTS → tts-measure → recalc"]
+    B2 --> B3["⑤ 자동 검수 (렌더 전)<br/>check + 추가 검사 6가지"]
+  end
+  subgraph HUMAN2["사람 게이트 2"]
+    G3{"★ 기획 승인<br/>approve · 승인 해시 고정 (P0)"}
+  end
+  subgraph AUTO3["자동 구간 3 (승인 해시 일치 시만)"]
+    C1["⑥ 렌더 / 캡컷 넘기기 / AI 위임"] --> C2["렌더 후 검수 (제안)"]
+  end
+  subgraph HUMAN3["사람 게이트 3"]
+    G4{"승인함 검수<br/>승인 · 수정 요청 · 다시 만들기"} --> G5{"업로드 승인<br/>rights_status own/licensed만"}
+  end
+  START --> A1
+  A2 --> G1
+  G2 --> B1
+  B3 -->|"통과"| G3
+  B3 -->|"차단 항목"| FIX["기획 수정 → 재승인"]
+  G3 --> C1
+  C2 --> G4
+  G4 -->|"수정 요청"| FIX
+  FIX -.-> G3
+  G5 --> UP(["업로드 예약 → 완료"])
+  G5 -->|"권리 미확인"| KEEP(["[보관]만 · 업로드 차단"])
+  AUTOUP["자동 업로드 (사용자 확정 대기)<br/>조건 전부 충족 시에만"] -.-> G5

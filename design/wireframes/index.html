@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운영 화면 시안 목록 — CineDram Studio</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  .idx { max-width: calc(var(--spacing) * 240); margin: 0 auto; padding: calc(var(--spacing) * 6) calc(var(--spacing) * 4); }
+  .idx a.card { text-decoration: none; color: inherit; }
+</style>
+</head>
+<body>
+<div class="idx">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">CineDram Studio 운영 화면 시안</h1>
+      <p class="page-sub muted">정적 HTML 초안 · 값은 design/tokens.css 의 사본(_tokens.css) · 비주얼 수치는 사람 확정 대기</p>
+    </div>
+    <button class="icon-btn" id="theme" aria-pressed="false">라이트/다크</button>
+  </div>
+  <div class="grid grid-3">
+    <a class="card" href="dashboard.html"><span class="card-title">홈 (운영 대시보드)</span><span class="muted">요약 4칸 · 원클릭 진입 · 진행 중 작업(5단계 + 내부 6단계) · 승인 대기 3 · 레이더 후보 3 · 최근 제작 기록</span><span class="label muted">패턴 A + N · ?state=empty|loading|error</span></a>
+    <a class="card" href="oneclick.html"><span class="card-title">원클릭 제작</span><span class="muted">제작 방식(규칙 있는 것만) → 소재(비우면 자동) → 제작 모드(자동제작 기본) → 업로드(채널 선택 · 방식은 환경설정 값 읽기 전용) → 버튼 한 번, 최근 제작 기록</span><span class="label muted">패턴 A + I · ?from=radar · &amp;rights=unknown · ?channels=none · ?aside=off · ?cat=long|etc · ?state=empty|loading|error</span></a>
+    <a class="card" href="queue.html"><span class="card-title">대기 큐</span><span class="muted">AI 슬롯(병렬)·렌더 슬롯(직렬) · 필터 7 · 순서·일시정지·취소·재시도 · 일괄 묶음 · 사람 대기 슬롯 비점유</span><span class="label muted">패턴 N + B · ?state=empty|loading|error</span></a>
+    <a class="card" href="settings.html"><span class="card-title">환경설정</span><span class="muted">탭 3: 계정(세션·Aside 연결) · AI API(키 끝 4자리·한도·사용량) · 업로드 방식(전역 검수 후 고정 + 채널별 자동)</span><span class="label muted">?tab=account|ai|upload · ?state=</span></a>
+    <a class="card" href="channels.html"><span class="card-title">채널 관리</span><span class="muted">좌 구글 계정 목록 + [+ 구글 계정 추가] · 우 선택 계정의 YouTube 채널(등록/해제·별칭·상태·ID 끝 6자리)</span><span class="label muted">설정 · ?acct=1|2|3 · ?state=</span></a>
+    <a class="card" href="risk.html"><span class="card-title">리스크 기록 (S-RK1)</span><span class="muted">채널별 경고·스트라이크 수동 기록 · 작품 안전 등급 · 승인함 업로드 전 위험 점검 미리보기 · 법적 단정 금지</span><span class="label muted">권리 · ?state=</span></a>
+    <a class="card" href="report.html"><span class="card-title">성과 (보관함 · 채널 성적표)</span><span class="muted">KPI 4 · 기획점별 타율 · 규칙 후보(반복 수정 순위, [규칙으로 승인]·[무시]) · 영상 보관함 최소</span><span class="label muted">후속 4 · ?tab=archive · ?state=</span></a>
+    <a class="card" href="radar.html"><span class="card-title">레이더 · 황금키워드</span><span class="muted">탭 5 · 키워드 표(입력·조회 시점·우리 성과 연결) · 후보 바구니</span><span class="label muted">후속 5 · ?tab=feed|works|entry|people|keyword · ?state=</span></a>
+    <a class="card" href="create.html"><span class="card-title">만들기</span><span class="muted">작품/원본 → 구성 → 소재 모드 → 속도 → 실행</span><span class="label muted">단계 1 · 패턴 A + I</span></a>
+    <a class="card" href="gate-topic.html"><span class="card-title">관문 ① 소재</span><span class="muted">후보 3개 카드(점수·킥·끝 장면) → 선택</span><span class="label muted">단계 1 · 1 / 2+1 / 3</span></a>
+    <a class="card" href="gate-title.html"><span class="card-title">관문 ② 제목</span><span class="muted">흐름 4줄 · 후킹 2 · 제목 3, 수정 시트 · 미리보기</span><span class="label muted">단계 1 · 패턴 I + J</span></a>
+    <a class="card" href="status.html"><span class="card-title">제작 현황</span><span class="muted">5단계 진행바 · 상태 배지 5종 · 빈/로딩/오류 상태</span><span class="label muted">단계 3 · ?state=empty|loading|error</span></a>
+    <a class="card" href="inbox.html"><span class="card-title">승인함</span><span class="muted">승인 카드 5 배리언트(일반·권리 미확인 보관·점검 실패·처리 중·승인됨)</span><span class="label muted">단계 3 · ?state=empty</span></a>
+  </div>
+  <p class="label muted" style="margin-top: calc(var(--spacing) * 6)">구간: ~767 하단 탭 1열 · 768~1199 접힘 메뉴 2열 + 우측 드로어 · 1200~ 3열. 다크는 각 화면 상단 달 아이콘 또는 ?dark. 작품명·인물은 모두 가상.</p>
+</div>
+<script>
+  var q = new URLSearchParams(location.search), b = document.getElementById('theme');
+  var d = q.has('dark') || localStorage.getItem('cd-theme') === 'dark';
+  document.documentElement.classList.toggle('dark', d); b.setAttribute('aria-pressed', d);
+  b.onclick = function () { d = document.documentElement.classList.toggle('dark'); localStorage.setItem('cd-theme', d ? 'dark' : 'light'); b.setAttribute('aria-pressed', d); };
+</script>
+</body>
+</html>

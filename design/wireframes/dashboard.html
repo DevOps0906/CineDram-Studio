@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>홈 (운영 대시보드) — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+<style>
+  /* 이 화면 전용 — 토큰만 사용 */
+  .sec { display: flex; flex-direction: column; gap: calc(var(--spacing) * 3); }
+  .sec-head { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); }
+  .sec-head .end { margin-left: auto; }
+
+  /* ① 요약 4칸: 모바일 2×2 / 태블릿·데스크톱 4칸 */
+  .kpis { display: grid; gap: calc(var(--spacing) * 3); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (width >= 768px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .kpi { text-decoration: none; color: inherit; gap: calc(var(--spacing) * 1.5); min-height: var(--size-touch); }
+  .kpi:hover { border-color: var(--color-input); }
+  .kpi .k-label { font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; color: var(--color-text-muted); }
+  .kpi .k-row { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--spacing) * 2); }
+  .k-ico { display: inline-grid; place-items: center; width: calc(var(--spacing) * 7); height: calc(var(--spacing) * 7); border-radius: var(--radius-control); flex: none; }
+  .kpi .k-sub { font-size: var(--text-label); line-height: var(--text-label--line-height); color: var(--color-text-muted); }
+  .kpi.t-danger .score { color: var(--color-danger); }
+  .k-info { background: var(--color-info-subtle); color: var(--color-info-subtle-fg); }
+  .k-ok { background: var(--color-success-subtle); color: var(--color-success-subtle-fg); }
+  .k-danger { background: var(--color-danger-subtle); color: var(--color-danger-subtle-fg); }
+  /* 오늘 할 일: 모바일 1열(한 손 탭) / 768~ 3칸 */
+  .todo { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: minmax(0, 1fr); }
+  @media (width >= 768px) { .todo { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--spacing) * 3); } }
+  .todo-item { flex-direction: row; align-items: center; text-decoration: none; color: inherit; min-height: calc(var(--size-touch) + var(--spacing) * 6); padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4); }
+  .todo-item:hover { border-color: var(--color-input); }
+  .todo-item .grow { flex: 1; min-width: 0; }
+  .todo-item .go { transform: rotate(-90deg); color: var(--color-text-muted); }
+  /* ② 원클릭 진입 카드 */
+  .entry { border-color: var(--color-primary); }
+  .entry-body { display: flex; flex-direction: column; gap: calc(var(--spacing) * 3); }
+  @media (width >= 1200px) { .entry-body { flex-direction: row; align-items: center; } .entry-body .pills { flex: 1; } }
+
+  /* ③ 진행 중 작업 행 */
+  .job { display: grid; gap: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 3) 0; grid-template-columns: minmax(0, 1fr); }
+  @media (width >= 768px) { .job { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; column-gap: calc(var(--spacing) * 5); } }
+  .job-meta { display: flex; flex-direction: column; gap: calc(var(--spacing) * 1); min-width: 0; }
+  .job-meta strong { overflow-wrap: anywhere; }
+  .job-track { display: flex; flex-direction: column; gap: calc(var(--spacing) * 1.5); min-width: 0; }
+  .inner { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); font-size: var(--text-label); line-height: var(--text-label--line-height); color: var(--color-text-muted); }
+  .inner strong { color: var(--color-text); }
+  .mini { list-style: none; margin: 0; padding: 0; display: inline-flex; gap: calc(var(--spacing) * 0.5); }
+  .mini li { width: calc(var(--spacing) * 3); height: calc(var(--spacing) * 1.5); border-radius: var(--radius-pill); background: var(--color-input); }
+  .mini li.done { background: var(--color-success); }
+  .mini li.now { background: var(--color-primary); }
+
+  /* ④ 승인 카드: 결정 줄은 좁은 열에서도 깨지지 않게 주 버튼 한 줄 + 보조 2개 */
+  .dash-decide { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: auto; }
+  .dash-decide .btn:first-child { grid-column: 1 / -1; }
+  .dash-decide .btn { padding: 0 calc(var(--spacing) * 2); white-space: nowrap; }
+  @media (width >= 1200px) { .dash-decide { grid-template-columns: minmax(0, 1fr); } } /* 3열 카드가 좁아 세로로 */
+  .appr .card-head .label { min-width: 0; overflow-wrap: anywhere; }
+
+  /* ⑤ 레이더 후보 */
+  .cand .rank { font-weight: 800; color: var(--color-primary); font-variant-numeric: tabular-nums; }
+  .cand .why { display: flex; gap: calc(var(--spacing) * 1.5); align-items: flex-start; }
+  .cand .btn { margin-top: auto; min-height: var(--size-touch); }
+
+  .rec .card-head strong { min-width: 0; overflow-wrap: anywhere; }
+  .kpi-skel { min-height: calc(var(--spacing) * 24); }
+</style>
+</head>
+<body data-page="dashboard">
+<main class="main">
+  <div class="demo-bar" role="group" aria-label="시안 상태 전환">
+    <span class="muted">시안 상태:</span>
+    <button class="pill" data-set-state="normal">정상</button>
+    <button class="pill" data-set-state="empty">빈</button>
+    <button class="pill" data-set-state="loading">불러오는 중</button>
+    <button class="pill" data-set-state="error">오류</button>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">홈</h1>
+      <p class="page-sub muted">오늘 할 일 3묶음과 제작 현황 요약. 모든 데이터는 가상입니다.</p>
+    </div>
+    <span class="label muted num" aria-live="polite"><i data-i="refresh"></i> 11/02 14:20 기준</span>
+  </div>
+
+  <div class="stack">
+    <!-- 오류 배너 (?state=error) -->
+    <div class="banner" data-state-view="error" role="alert"><i data-i="warn"></i><span class="grow">최신 현황을 불러오지 못했습니다. 아래는 14:15 기준 마지막 값입니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+
+    <!-- 오늘 할 일 3묶음 (docs/15 §5-1, 모바일 우선) -->
+    <section class="sec" aria-labelledby="s-todo" data-state-view="normal error">
+      <div class="sec-head"><h2 id="s-todo" class="section-title">오늘 할 일</h2><span class="label muted">사람만 할 수 있는 3가지 게이트</span></div>
+      <div class="todo">
+        <a class="card todo-item" href="gate-topic.html">
+          <span class="k-ico k-info"><i data-i="target"></i></span>
+          <span class="grow"><strong>소재 고르기</strong><br><span class="label muted">관문 ① · 후보 3개 중 선택</span></span>
+          <span class="score">2</span><i data-i="chevron" class="go"></i>
+        </a>
+        <a class="card todo-item" href="gate-title.html">
+          <span class="k-ico k-info"><i data-i="type"></i></span>
+          <span class="grow"><strong>기획 승인</strong><br><span class="label muted">관문 ② 제목 → 기획안 승인</span></span>
+          <span class="score">1</span><i data-i="chevron" class="go"></i>
+        </a>
+        <a class="card todo-item" href="inbox.html">
+          <span class="k-ico k-danger"><i data-i="scaneye"></i></span>
+          <span class="grow"><strong>업로드 승인</strong><br><span class="label muted">승인함 · 권리 미확인 1 포함</span></span>
+          <span class="score">3</span><i data-i="chevron" class="go"></i>
+        </a>
+      </div>
+      <p class="label muted"><i data-i="shield"></i> 이 화면은 같은 PC나 같은 로컬 네트워크에서만 열립니다. 폰에서 밖으로 원격 접속하는 기능은 열지 않았습니다(보안 검토·사용자 확정 대기).</p>
+    </section>
+
+    <!-- ① 상단 요약 4칸 -->
+    <section aria-label="오늘 요약" data-state-view="normal error empty">
+      <div class="kpis">
+        <a class="card kpi" href="queue.html">
+          <span class="k-label">진행 중</span>
+          <span class="k-row"><span class="score">2</span><span class="k-ico k-info"><i data-i="activity"></i></span></span>
+          <span class="k-sub">기획 승인 대기 1 포함 · 큐 대기 4</span>
+        </a>
+        <a class="card kpi" href="inbox.html">
+          <span class="k-label">승인 대기</span>
+          <span class="k-row"><span class="score">3</span><span class="k-ico k-info"><i data-i="scaneye"></i></span></span>
+          <span class="k-sub">가장 오래된 카드 2시간 4분</span>
+        </a>
+        <a class="card kpi" href="inbox.html">
+          <span class="k-label">오늘 업로드 예정</span>
+          <span class="k-row"><span class="score">2</span><span class="k-ico k-ok"><i data-i="calendar"></i></span></span>
+          <span class="k-sub">다음 19:00 · 승인된 것만</span>
+        </a>
+        <a class="card kpi t-danger" href="inbox.html">
+          <span class="k-label">권리 미확인</span>
+          <span class="k-row"><span class="score">1</span><span class="k-ico k-danger"><i data-i="shield"></i></span></span>
+          <span class="k-sub">업로드 차단 · 보관 대상</span>
+        </a>
+      </div>
+    </section>
+    <div class="kpis" data-state-view="loading" aria-busy="true" aria-label="요약 불러오는 중">
+      <div class="card kpi-skel"><div class="skel w40"></div><div class="skel w70"></div></div>
+      <div class="card kpi-skel"><div class="skel w40"></div><div class="skel w70"></div></div>
+      <div class="card kpi-skel"><div class="skel w40"></div><div class="skel w70"></div></div>
+      <div class="card kpi-skel"><div class="skel w40"></div><div class="skel w70"></div></div>
+    </div>
+
+    <!-- ② 원클릭 제작 진입 -->
+    <section class="card entry" aria-labelledby="s-entry">
+      <div class="sec-head">
+        <h2 id="s-entry" class="card-title">원클릭 제작</h2>
+        <span class="label muted">제작 방식을 고르고 버튼 한 번 · 관문과 기획 승인은 사람이 합니다</span>
+      </div>
+      <div class="entry-body">
+        <div class="pills" role="group" aria-label="제작 방식 빠른 선택">
+          <button class="pill" data-act="pill" data-method="한드짜" aria-pressed="true">한드짜</button>
+          <button class="pill" data-act="pill" data-method="1인칭 한드짜" aria-pressed="false">1인칭 한드짜</button>
+          <button class="pill" data-act="pill" data-method="감동 반전형" aria-pressed="false">감동 반전형</button>
+        </div>
+        <a class="btn btn-strong" id="go-oneclick" href="oneclick.html?method=%ED%95%9C%EB%93%9C%EC%A7%9C"><i data-i="zap"></i>원클릭 제작</a>
+      </div>
+      <p class="label muted">제작 모드 기본값: 자동제작 · 원클릭 화면에서 바꿀 수 있습니다. 업로드 방식은 환경설정에서 채널별로 정합니다.</p>
+    </section>
+
+    <!-- 빈 상태 (?state=empty) -->
+    <div class="empty" data-state-view="empty">
+      <i data-i="zap"></i>
+      <p class="card-title">진행 중인 작업과 승인 대기 카드가 없습니다</p>
+      <p class="muted label">위 원클릭 제작으로 시작하거나, 레이더 후보가 모이면 여기에 표시됩니다.</p>
+      <a class="btn btn-secondary" href="oneclick.html"><i data-i="plus"></i>원클릭 제작 열기</a>
+    </div>
+
+    <!-- 로딩 (?state=loading) -->
+    <div class="card" data-state-view="loading" aria-busy="true" aria-label="진행 중 작업 불러오는 중">
+      <div class="skel w40"></div><div class="skel tall w90"></div><div class="skel w70"></div><div class="skel tall w90"></div>
+    </div>
+
+    <div class="stack" id="jobs" data-state-view="normal error">
+      <!-- ③ 진행 중 작업 -->
+      <section class="card" aria-labelledby="s-jobs">
+        <div class="sec-head">
+          <h2 id="s-jobs" class="card-title">진행 중 작업 <span class="count">3</span></h2>
+          <span class="end row"><a class="btn btn-ghost" href="queue.html"><i data-i="layers"></i>대기 큐 4</a><a class="btn btn-ghost" href="status.html">제작 현황 전체</a></span>
+        </div>
+        <ul class="list">
+          <li class="job">
+            <div class="job-meta">
+              <div class="card-head"><span class="badge b-comp">한드짜</span><span class="end label muted num"><i data-i="clock"></i> 11분 7초</span></div>
+              <strong>달빛 수선소 · E04</strong>
+            </div>
+            <div class="job-track">
+              <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="done"><span class="step-name">원본</span></li><li class="now" aria-current="step"><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+              <div class="inner"><ol class="mini" aria-hidden="true"><li class="done"></li><li class="done"></li><li class="now"></li><li></li><li></li><li></li></ol><span>내부 <strong>③ 장면 맞추기</strong> · <span class="num">3/6</span></span></div>
+            </div>
+          </li>
+          <li class="job">
+            <div class="job-meta">
+              <div class="card-head"><span class="badge b-comp">감동 반전형</span><span class="end label muted num"><i data-i="clock"></i> 26분</span></div>
+              <strong>유리정원 사무소 · E08</strong>
+            </div>
+            <div class="job-track">
+              <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="done"><span class="step-name">원본</span></li><li class="now" aria-current="step"><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+              <div class="inner"><ol class="mini" aria-hidden="true"><li class="done"></li><li class="done"></li><li class="done"></li><li class="done"></li><li></li><li></li></ol><span>내부 <strong>④ 목소리·자막 완료</strong> · <span class="num">4/6</span></span><span class="badge b-review"><i data-i="scaneye"></i>기획 승인 대기</span></div>
+            </div>
+          </li>
+          <li class="job">
+            <div class="job-meta">
+              <div class="card-head"><span class="badge b-comp">1인칭 한드짜</span><span class="end label muted num"><i data-i="clock"></i> 3분 40초</span></div>
+              <strong>서쪽 정류장의 겨울 · E02</strong>
+            </div>
+            <div class="job-track">
+              <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="now" aria-current="step"><span class="step-name">원본</span></li><li><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+              <div class="inner"><ol class="mini" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li></ol><span>내부 <strong>① 받아쓰기 대기</strong> · <span class="num">0/6</span></span><span class="badge b-nosrc"><i data-i="filex"></i>원본 없음</span></div>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ④ 승인 대기 -->
+      <section class="sec" aria-labelledby="s-appr">
+        <div class="sec-head">
+          <h2 id="s-appr" class="section-title">승인 대기 <span class="count hot">3</span></h2>
+          <a class="btn btn-ghost end" href="inbox.html">승인함 전체</a>
+        </div>
+        <div class="grid grid-3">
+          <article class="card appr" aria-label="유리정원 사무소 E07 승인 카드">
+            <div class="card-head"><span class="badge b-comp">한드짜</span><span class="label">유리정원 사무소 · E07</span><span class="end label muted num">49분</span></div>
+            <h3 class="card-title clamp-2">퇴근 직전 걸려 온 전화 한 통, 팀장의 표정이 굳었다</h3>
+            <div class="inspect"><span class="t-ok"><i data-i="check"></i>통과 14</span><span class="t-warn"><i data-i="warn"></i>경고 2</span><span class="muted"><i data-i="x"></i>실패 0</span></div>
+            <div class="dash-decide"><a class="btn btn-primary" href="inbox.html">승인</a><a class="btn btn-secondary" href="inbox.html">수정 요청</a><a class="btn btn-secondary" href="inbox.html">다시 만들기</a></div>
+          </article>
+          <article class="card appr" aria-label="파도 위 도서관 E11 승인 카드 — 권리 미확인">
+            <div class="card-head"><span class="badge b-rights"><i data-i="shield"></i>권리 미확인</span><span class="badge b-comp">1인칭 나레이션</span><span class="label">파도 위 도서관 · E11</span><span class="end label muted num">1시간 2분</span></div>
+            <h3 class="card-title clamp-2">사서가 반납함에서 꺼낸 책, 대출 기록이 없었다</h3>
+            <div class="inspect"><span class="t-ok"><i data-i="check"></i>통과 15</span><span class="t-warn"><i data-i="warn"></i>경고 1</span><span class="muted"><i data-i="x"></i>실패 0</span></div>
+            <div class="dash-decide"><a class="btn btn-secondary" href="inbox.html"><i data-i="archive"></i>보관</a><a class="btn btn-secondary" href="inbox.html">수정 요청</a><a class="btn btn-secondary" href="inbox.html">다시 만들기</a></div>
+          </article>
+          <article class="card appr" aria-label="달빛 수선소 E05 승인 카드">
+            <div class="card-head"><span class="badge b-comp">감동 반전형</span><span class="label">달빛 수선소 · E05</span><span class="end label muted num">2시간 4분</span></div>
+            <h3 class="card-title clamp-2">단추 하나 때문에 30년 단골이 발길을 끊은 사연</h3>
+            <div class="inspect"><span class="t-ok"><i data-i="check"></i>통과 16</span><span class="muted"><i data-i="warn"></i>경고 0</span><span class="muted"><i data-i="x"></i>실패 0</span></div>
+            <div class="dash-decide"><a class="btn btn-primary" href="inbox.html">승인</a><a class="btn btn-secondary" href="inbox.html">수정 요청</a><a class="btn btn-secondary" href="inbox.html">다시 만들기</a></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ⑤ 레이더 오늘의 후보 -->
+      <section class="sec" aria-labelledby="s-radar">
+        <div class="sec-head">
+          <h2 id="s-radar" class="section-title">레이더 오늘의 후보</h2>
+          <span class="label muted">점수는 참고값 · 소재 확정은 관문 ①에서 사람이</span>
+        </div>
+        <div class="grid grid-3">
+          <article class="card cand" aria-label="후보 1 등대지기 편의점">
+            <div class="card-head"><span class="rank" aria-label="순위 1">01</span><strong>등대지기 편의점 · E03</strong><span class="end score" aria-label="점수 86">86</span></div>
+            <div class="row"><span class="badge b-ok"><i data-i="shield"></i>권리 확인</span><span class="badge b-comp">추천 한드짜</span></div>
+            <p class="why label muted"><i data-i="radar"></i><span>최근 7일 같은 장면 쇼츠 조회가 늘고, 경쟁 채널은 아직 적음 (가상)</span></p>
+            <a class="btn btn-link-sm" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭으로 만들기</a>
+          </article>
+          <article class="card cand" aria-label="후보 2 여름 끝 체육관">
+            <div class="card-head"><span class="rank" aria-label="순위 2">02</span><strong>여름 끝 체육관 · E05</strong><span class="end score" aria-label="점수 79">79</span></div>
+            <div class="row"><span class="badge b-ok"><i data-i="shield"></i>권리 확인</span><span class="badge b-comp">추천 감동 반전형</span></div>
+            <p class="why label muted"><i data-i="radar"></i><span>마지막 회 반전 장면 검색이 이틀째 오름세 (가상)</span></p>
+            <a class="btn btn-link-sm" href="oneclick.html?from=radar"><i data-i="zap"></i>원클릭으로 만들기</a>
+          </article>
+          <article class="card cand" aria-label="후보 3 구름다리 하숙집 — 권리 미확인">
+            <div class="card-head"><span class="rank" aria-label="순위 3">03</span><strong>구름다리 하숙집 · E01</strong><span class="end score" aria-label="점수 74">74</span></div>
+            <div class="row"><span class="badge b-rights"><i data-i="shield"></i>권리 미확인</span><span class="badge b-comp">추천 1인칭 한드짜</span></div>
+            <p class="why label muted"><i data-i="radar"></i><span>첫 회 공개 직후 관련 쇼츠가 빠르게 늘어남 · 만들 수는 있어도 업로드는 막힘 (가상)</span></p>
+            <a class="btn btn-link-sm" href="oneclick.html?from=radar&amp;rights=unknown"><i data-i="zap"></i>원클릭으로 만들기</a>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <a class="btn btn-secondary btn-block only-mobile" href="status.html"><i data-i="activity"></i>최근 제작 기록 보기</a>
+  </div>
+</main>
+
+<!-- ⑥ 최근 제작 기록 -->
+<aside class="aside" data-label="최근 제작 기록" aria-label="최근 제작 기록">
+  <div class="aside-inner">
+    <div class="aside-head"><h2 class="section-title">최근 제작 기록 <span class="count">4</span></h2><span class="label muted" aria-live="polite"><i data-i="refresh"></i> 5초마다 갱신</span></div>
+
+    <div class="empty" data-state-view="empty">
+      <i data-i="zap"></i>
+      <p class="card-title">아직 제작 기록이 없습니다</p>
+      <p class="muted label">원클릭 제작을 누르면 여기에 단계별로 표시됩니다.</p>
+    </div>
+
+    <div class="stack" data-state-view="loading" aria-busy="true" aria-label="불러오는 중">
+      <p class="label muted">제작 기록을 불러오는 중…</p>
+      <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div></div>
+      <div class="card"><div class="skel w40"></div><div class="skel tall w90"></div></div>
+    </div>
+
+    <div class="banner" data-state-view="error" role="alert"><i data-i="warn"></i><span class="grow">기록을 불러오지 못했습니다.</span><button class="btn btn-secondary"><i data-i="refresh"></i>다시 시도</button></div>
+
+    <div class="stack" data-state-view="normal">
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">한드짜</span><strong>달빛 수선소 · E04</strong><span class="end label muted num">2분 전</span></div>
+        <ol class="progress" aria-label="진행 단계"><li class="done"><span class="step-name">소재</span></li><li class="done"><span class="step-name">원본</span></li><li class="now" aria-current="step"><span class="step-name">제작</span></li><li><span class="step-name">검수</span></li><li><span class="step-name">업로드</span></li></ol>
+      </div>
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">감동 반전형</span><strong>달빛 수선소 · E05</strong><span class="end label muted num">18분 전</span></div>
+        <span class="badge b-review"><i data-i="scaneye"></i>승인 대기 · 승인함에서 확인</span>
+      </div>
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">1인칭 한드짜</span><strong>유리정원 사무소 · E02</strong><span class="end label muted num">1시간 전</span></div>
+        <span class="badge b-ok"><i data-i="calendar"></i>승인됨 · 11/02 19:00 예약</span>
+      </div>
+      <div class="card rec"><div class="card-head"><span class="badge b-comp">한드짜</span><strong>파도 위 도서관 · E09</strong><span class="end label muted num">3시간 전</span></div>
+        <span class="badge b-rights"><i data-i="shield"></i>권리 미확인 · 업로드 차단(보관)</span>
+      </div>
+    </div>
+    <a class="btn btn-secondary btn-block" href="status.html">전체 현황 보기</a>
+  </div>
+</aside>
+<script src="_app.js"></script>
+<script>
+  // 빠른 선택 칩 → 원클릭 제작 링크에 방식을 실어 보낸다
+  (function () {
+    var go = document.getElementById('go-oneclick');
+    document.querySelectorAll('[data-method]').forEach(function (b) {
+      b.addEventListener('click', function () { go.href = 'oneclick.html?method=' + encodeURIComponent(b.dataset.method); });
+    });
+  })();
+</script>
+</body>
+</html>

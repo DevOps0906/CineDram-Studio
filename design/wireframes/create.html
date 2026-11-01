@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>만들기 — CineDram Studio 시안</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_app.css">
+</head>
+<body data-page="create">
+<main class="main">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">만들기</h1>
+      <p class="page-sub muted">작품을 고르고 구성·소재 모드만 정하면 바로 실행합니다. 목표: 클릭 3번.</p>
+    </div>
+  </div>
+
+  <ol class="stepper" aria-label="만들기 단계">
+    <li class="done"><span class="n">1</span><span class="t">작품/원본</span></li>
+    <li class="now" aria-current="step"><span class="n">2</span><span class="t">구성</span></li>
+    <li><span class="n">3</span><span class="t">소재 모드</span></li>
+    <li><span class="n">4</span><span class="t">속도</span></li>
+    <li><span class="n">5</span><span class="t">실행</span></li>
+  </ol>
+
+  <div class="grid grid-2">
+    <!-- 1 작품/원본 -->
+    <section class="card" aria-labelledby="s-work">
+      <div class="card-head"><h2 id="s-work" class="card-title">1. 작품/원본</h2><span class="end label muted">보유 원본 4</span></div>
+      <input class="input" type="search" placeholder="작품명 검색" aria-label="작품명 검색">
+      <ul class="list" role="radiogroup" aria-label="작품">
+        <li><label class="work"><input type="radio" name="work" checked><span class="grow"><span class="w-name">달빛 수선소</span><br><span class="label muted">E01–E12 · 자막 있음</span></span><span class="badge b-ok"><i data-i="circlecheck"></i>제작 가능</span></label></li>
+        <li><label class="work"><input type="radio" name="work"><span class="grow"><span class="w-name">유리정원 사무소</span><br><span class="label muted">E01–E08 · 자막 있음</span></span><span class="badge b-ok"><i data-i="circlecheck"></i>제작 가능</span></label></li>
+        <li><label class="work"><input type="radio" name="work"><span class="grow"><span class="w-name">서쪽 정류장의 겨울</span><br><span class="label muted">원본 들어오면 자동 제작</span></span><span class="badge b-nosrc"><i data-i="filex"></i>원본 없음</span></label></li>
+        <li><label class="work" title="권리 확인 전에는 업로드 경로가 열리지 않습니다 (R9-1)"><input type="radio" name="work" disabled><span class="grow"><span class="w-name">파도 위 도서관</span><br><span class="label muted">rights_status 미입력</span></span><span class="badge b-rights"><i data-i="shield"></i>권리 미확인</span></label></li>
+      </ul>
+      <label class="field"><span class="label muted">회차</span>
+        <select class="input" aria-label="회차"><option>E04</option><option>E05</option><option>E06</option></select>
+      </label>
+    </section>
+
+    <!-- 2 구성 -->
+    <section class="card" aria-labelledby="s-comp">
+      <h2 id="s-comp" class="card-title">2. 구성</h2>
+      <div class="pills" role="group" aria-label="구성">
+        <button class="pill" data-act="pill" aria-pressed="true">한드짜</button>
+        <button class="pill" data-act="pill" aria-pressed="false">1인칭 한드짜</button>
+        <button class="pill" data-act="pill" aria-pressed="false">감동 반전</button>
+        <button class="pill" data-act="pill" aria-pressed="false">1인칭 나레이션</button>
+        <button class="pill" data-act="pill" aria-pressed="false">예능</button>
+        <button class="pill" data-act="pill" aria-pressed="false">자체 보유</button>
+        <button class="pill" aria-disabled="true" title="초안 규칙 — 준비 중">인물·팬튜브</button>
+      </div>
+      <div class="box"><span class="label">규칙 요약 (drama.md)</span>갈등 → 쌓임 → 뒤집힘 · 30~55초</div>
+
+      <h2 class="card-title">3. 소재 모드</h2>
+      <div class="pills" role="group" aria-label="소재 모드">
+        <button class="pill" data-act="pill" aria-pressed="true">새 소재</button>
+        <button class="pill" data-act="pill" aria-pressed="false">같은 소재</button>
+        <button class="pill" data-act="pill" aria-pressed="false">같은 결 다른 소재</button>
+        <button class="pill" data-act="pill" aria-pressed="false">다른 결</button>
+      </div>
+      <p class="label muted">구간 겹침 40% 이하로 중복을 막습니다.</p>
+    </section>
+
+    <!-- 4 속도 + 5 실행 -->
+    <section class="card span-all" aria-labelledby="s-speed">
+      <h2 id="s-speed" class="card-title">4. 속도</h2>
+      <div class="stack" role="radiogroup" aria-label="속도">
+        <label class="opt"><input type="radio" name="speed" checked><span class="radio-dot"></span><span class="grow"><strong>관문 멈춤</strong><br><span class="label muted">관문 ①·② 에서 사람이 고른 뒤 진행</span></span></label>
+        <label class="opt"><input type="radio" name="speed"><span class="radio-dot"></span><span class="grow"><strong>끝까지 자동</strong><br><span class="label muted">1순위 후보로 진행, 승인함에서만 확인</span></span></label>
+      </div>
+      <div class="box">
+        <span class="label">실행 요약</span>
+        <dl class="kv"><dt>작품</dt><dd>달빛 수선소 · E04</dd><dt>구성</dt><dd>한드짜</dd><dt>소재 모드</dt><dd>새 소재</dd><dt>디스크</dt><dd class="num">여유 182 GB</dd></dl>
+      </div>
+      <button class="btn btn-strong btn-block">실행</button>
+      <p class="label muted">실행하면 관문 ① 소재 후보 3개가 준비되면 알려 드립니다.</p>
+    </section>
+  </div>
+</main>
+<aside class="aside" data-status-panel aria-label="제작 현황"></aside>
+<script src="_app.js"></script>
+</body>
+</html>
