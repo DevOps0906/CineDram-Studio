@@ -1,10 +1,10 @@
 # AGENTS.md — CineDram-Studio (쇼츠 설계도)
 
-모든 AI 코딩 도구가 읽는 단일 정본(80줄 이내). 원본 영상+SRT → 쇼츠 소재·제목·컷 지시서·자막·나레이션을 만드는 스킬+규칙 세트. 웹앱 아님.
+모든 AI 코딩 도구가 읽는 단일 정본(80줄 이내). 원본 영상+SRT → 쇼츠 소재·제목·컷 지시서·자막·나레이션을 만드는 스킬+규칙 세트(운영 화면 개발 중). 스택·구현 순서 정본: `docs/16-기술설계ADR.md`.
 구조: `README.md` · 정본 `docs/00-통합설계서.md`(§17 파일 지도) · 엔진 `engine/README.md`.
 
 ## 명령 (기준 파일 `컷표.json`)
-`python engine/shortsflow.py {check|tts-plan|tts-measure|recalc|approve|render|handoff|delegate} 컷표.json` — 테스트·린터 없음. 긴 출력은 `q <명령>`.
+`python engine/shortsflow.py {check|tts-plan|tts-measure|recalc|approve|render|handoff|delegate} 컷표.json` — 테스트: `q python -m unittest discover -s tests`(린터 없음). DB: `python db/migrate.py <db경로>`. 긴 출력은 `q <명령>`.
 
 ## 절대 규칙 (위반 = 리뷰 🔴)
 - 업로드·`approve`는 사람만. 권리(`rights_status`) 미확인 소재는 업로드 차단. 남의 쇼츠는 분석 대상일 뿐 소스 아님.

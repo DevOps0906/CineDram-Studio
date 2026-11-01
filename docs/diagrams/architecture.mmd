@@ -1,0 +1,36 @@
+flowchart LR
+  subgraph PC["사용자 PC (127.0.0.1만)"]
+    UI["브라우저 UI<br/>서버 렌더 HTML<br/>_app.css · _tokens.css"]
+    subgraph WEB["웹 서버 :8765 (FastAPI 잠정)"]
+      SEC["보안 골격<br/>Host·Origin 검사 · CSRF"]
+      SVC["서비스 계층<br/>화면 조회 · 사람 조작 · approve 요청"]
+    end
+    DB[("SQLite (WAL)<br/>jobs · job_events · topics<br/>approvals · sources · outputs")]
+    subgraph WK["워커 프로세스 (포트 없음 제안)"]
+      Q["큐 실행기<br/>BEGIN IMMEDIATE + 조건부 UPDATE<br/>승인 해시 재검사"]
+      GPU["GPU·ffmpeg 슬롯 1"]
+      LLM["LLM 슬롯 (기본 1)"]
+    end
+    ENG["엔진 CLI<br/>engine/shortsflow.py<br/>(서브프로세스)"]
+    FF["ffmpeg · ffprobe"]
+    FS["작업 폴더<br/>컷표.json · 기획승인.json · 원본/"]
+    RULES["rules/ · modes/"]
+    CC["Claude Code 헤드리스<br/>(읽기 전용 도구)"]
+    VAULT["OS 비밀 저장소<br/>(개발 7)"]
+  end
+  API["외부 AI API 3종<br/>(후순위, 개발 6 이후)"]
+  YT["YouTube API<br/>(개발 8)"]
+
+  UI -->|"HTTP"| SEC --> SVC
+  SVC -->|"읽기·쓰기"| DB
+  SVC -->|"읽기"| RULES
+  Q -->|"작업 집기·상태 기록"| DB
+  Q --> GPU
+  Q --> LLM
+  GPU -->|"check·recalc·render 등"| ENG
+  ENG --> FF
+  ENG -->|"gate: plan_hash"| FS
+  LLM --> CC
+  LLM -.-> API
+  SVC -.->|"참조만"| VAULT
+  Q -.-> YT

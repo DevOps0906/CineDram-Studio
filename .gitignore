@@ -21,3 +21,7 @@ docs/**/*.svg
 # 작업 임시
 *.mp4
 *.mov
+
+# Python 캐시
+__pycache__/
+*.pyc
