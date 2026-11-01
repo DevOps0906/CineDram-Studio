@@ -1,0 +1,83 @@
+erDiagram
+  works {
+    INTEGER id PK
+    TEXT title
+    TEXT aliases
+    TEXT genre
+    TEXT source_dir
+    INTEGER episode_count
+    TEXT srt_episodes
+    TEXT created_at
+  }
+  sources {
+    INTEGER id PK
+    INTEGER work_id FK
+    INTEGER episode
+    TEXT file_path
+    TEXT srt_path
+    REAL duration_sec
+    TEXT origin
+    TEXT rights_status
+    TEXT rights_note
+    TEXT created_at
+  }
+  jobs {
+    INTEGER id PK
+    INTEGER source_id FK
+    INTEGER link_id
+    TEXT rule_set
+    TEXT topic_mode
+    TEXT channel_id
+    TEXT speed
+    TEXT exec_mode
+    TEXT upload_mode
+    TEXT state
+    TEXT queue_state
+    INTEGER priority
+    string more_8_cols
+  }
+  job_events {
+    INTEGER id PK
+    INTEGER job_id FK
+    TEXT at
+    TEXT from_state
+    TEXT to_state
+    TEXT message
+    INTEGER render_count
+    TEXT error
+  }
+  topics {
+    INTEGER id PK
+    INTEGER job_id FK
+    REAL source_start
+    REAL source_end
+    TEXT hook_line
+    TEXT title
+    TEXT tone_primary
+    TEXT tone_secondary
+    REAL score
+    INTEGER used
+    TEXT created_at
+  }
+  approvals {
+    INTEGER id PK
+    INTEGER job_id FK
+    TEXT plan_hash
+    TEXT tts_hash
+    TEXT approved_by
+    TEXT approved_at
+  }
+  outputs {
+    INTEGER id PK
+    INTEGER job_id FK
+    TEXT work_code
+    INTEGER render_ver
+    TEXT file_path
+    TEXT created_at
+  }
+  works ||--o{ sources : "work_id"
+  sources ||--o{ jobs : "source_id"
+  jobs ||--o{ job_events : "job_id"
+  jobs ||--o{ topics : "job_id"
+  jobs ||--o{ approvals : "job_id"
+  jobs ||--o{ outputs : "job_id"
