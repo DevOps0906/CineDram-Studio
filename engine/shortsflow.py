@@ -143,6 +143,19 @@ def load_clips(plan):
     return {}
 
 
+NO_TTS = "no-tts-clips"   # tts_clips.json 이 없을 때의 고정 값
+
+
+def tts_state_hash(plan):
+    """승인 대상인 음성 실측 길이(tts_clips.json)의 digest. 들여쓰기·키 순서와 무관하게 비트별 길이만 본다."""
+    f = plan["_dir"] / "tts_clips.json"
+    if not f.exists():
+        return NO_TTS
+    clips = json.loads(f.read_text(encoding="utf-8")).get("clips", {})
+    norm = {str(b): round(float(v.get("duration", 0)), 3) for b, v in clips.items()}
+    return hashlib.sha1(json.dumps(norm, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
 def resolve(plan, clips=None):
     """컷마다 길이·타임라인 시각을 확정한다. (resolved, issues)"""
     issues = []
@@ -766,7 +779,7 @@ def cmd_approve(plan, who):
         return 1
     write_plan_doc(plan, resolved)
     import datetime
-    ap = {"plan_hash": plan["_hash"], "approved_by": who,
+    ap = {"plan_hash": plan["_hash"], "tts_hash": tts_state_hash(plan), "approved_by": who,
           "approved_at": datetime.datetime.now().isoformat(timespec="seconds"),
           "total_sec": round(total_len(resolved), 1), "cuts": len(resolved),
           "rights_status": plan["meta"].get("rights_status")}
@@ -785,6 +798,12 @@ def gate(plan):
     ap = json.loads(f.read_text(encoding="utf-8"))
     if ap.get("plan_hash") != plan["_hash"]:
         print("✗ [P0-2] 승인 뒤에 컷표.json 이 바뀌었다 — 승인된 기획으로만 영상을 만든다. 다시 `approve` 하세요.")
+        return False
+    if "tts_hash" not in ap:
+        print("✗ [P0-2] 음성 실측 길이(tts_clips.json)가 빠진 예전 승인 기록이다 — 재승인 필요. 다시 `approve` 하세요.")
+        return False
+    if ap["tts_hash"] != tts_state_hash(plan):
+        print("✗ [P0-2] 승인 뒤에 음성 실측 길이(tts_clips.json)가 바뀌었다 — 타임라인이 승인과 다르다. 다시 `approve` 하세요.")
         return False
     return True
 
@@ -861,13 +880,20 @@ def cmd_delegate(plan, out_dir, template="topbottom"):
 
 
 # ---------------------------------------------------------------- CLI
-def main(argv=None):
+def utf8_console():
     for stream in (sys.stdout, sys.stderr):   # Windows cp949 콘솔에서 ✓ « 출력 오류 방지
         try:
             stream.reconfigure(encoding="utf-8")
         except Exception:
             pass
-    ap = argparse.ArgumentParser(prog="shortsflow", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+
+
+utf8_console()   # main 을 거치지 않고 gate() 등을 import 해 불러도 안전하게
+
+
+def main(argv=None):
+    utf8_console()
+    ap =argparse.ArgumentParser(prog="shortsflow", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["check", "tts-plan", "tts-measure", "recalc", "approve", "render", "handoff", "delegate"])
     ap.add_argument("plan", help="컷표.json")
     ap.add_argument("--dir", default="tts", help="tts-measure: 음성 폴더")

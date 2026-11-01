@@ -11,3 +11,5 @@
 | 미리보기 | 원본 + 컷 표 | `cuts/*.mp4`, `미리보기.mp4` | ffmpeg, 디스크 검사 선행 |
 | 디스크 검사 | 원본 크기 | 통과/`blocked_disk` | 여유 ≥ max(10GB, 원본×2) |
 | 폴더 감시 | 원본 폴더 | `need_source → topic` 이벤트 | `원본/<작품>/E01.mp4+srt` 규칙 |
+
+승인 범위(`shortsflow.py approve`): `기획승인.json` 에 `컷표.json` 해시(`plan_hash`)와 `tts_clips.json` 실측 길이 해시(`tts_hash`, 파일 없으면 고정 값)를 함께 기록한다. render·handoff·delegate 는 둘 다 현재와 같을 때만 진행하고, `tts_hash` 없는 예전 승인 기록은 재승인을 요구한다(P0-2). 순서: tts-measure → recalc → check → approve.
