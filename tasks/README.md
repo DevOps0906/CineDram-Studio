@@ -12,7 +12,7 @@
 | task-007 | 개발 2b: 상태머신·큐 집기·최소 워커(GPU 슬롯 1, 포트 없음). 리뷰 반영(poison job·출력 마스킹·source_video 경로), 통합 테스트 166 통과 | W3 | task-005 | 높음 | builder·tester | 완료(미커밋) |
 | task-011 | 개발 4: 자동 검수 6가지(docs/13 §10) — 규칙 A10-12~18 확정(2026-11-02, -14 LUFS·-1 dBTP, 무음 0.3초·첫 소리 0.1초·검은 화면 1프레임), rules 반영 중 | W5 | task-010·규칙 반영 | 보통 | planner→builder | 완료 |
 | task-012 | 개발 5: 대기 큐 화면(R16~R20, 실행 중 취소) — 정본 tasks/plan-dev5.md. 테스트 361 | W5 | task-010 | 보통 | builder | 완료 |
-| task-013 | 개발 6: LLM 연동(ADR-002) + llm_calls + 한도 | W6 | 사용자 결정: LLM 방식(헤드리스 유지/API 전환)·헤드리스 이용 조건 근거(docs/16 열린 질문 2·7) | 높음 | builder | 보류 |
+| task-013 | 개발 6: LLM 연동(ADR-002) + llm_calls + 한도 | W6 | 결정 완료(2026-11-03): API 키만·월 $20·SRT는 권리 확인 작업만. 1차 = core/llm.py·0004·승인 차단 훅(완료), 2차 = 워커 단계·화면 연결(대기) | 높음 | builder | 진행 |
 | task-008 | 개발 1: 실제 소스 1편 검증(권리 own, approve는 사람) — 음량 허용 오차·LRA·true peak 실측 포함 | — | 사람 소스 준비(ffmpeg 준비됨) | 낮음 | 사람 | 보류 |
 
 상태: 대기 / 진행 / 완료 / 보류
