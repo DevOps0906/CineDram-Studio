@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty_state, button, status_badge, inspect_line %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">승인함</h1>
+    <p class="page-sub label muted">승인한 카드만 업로드 예약이 열립니다. 권리 미확인 카드는 보관만 할 수 있습니다.</p>
+  </div>
+  <nav class="pills" aria-label="필터">
+    {%- for key, label, n in tabs %}
+    <a class="pill" href="/inbox{% if key != 'review' %}?tab={{ key }}{% endif %}"{% if key == tab %} aria-current="page"{% endif %}>{{ label }} {{ n }}</a>
+    {%- endfor %}
+  </nav>
+</div>
+
+{% if not shown %}
+{% call empty_state("승인 대기 카드가 없습니다" if tab == "review" else "카드가 없습니다", "검수까지 끝난 영상이 여기에 모입니다.") %}{{ button("제작 현황 보기", "secondary", href="/status") }}{% endcall %}
+{% else %}
+<div class="inbox" id="inbox" data-job="{{ selected.id }}">
+  <div class="stack inbox-list">
+    {%- for c in shown %}
+    {% include "_approval_card.html" %}
+    {%- endfor %}
+  </div>
+
+  <section class="card inbox-detail" id="detail" aria-label="선택한 카드 상세">
+    <div class="card-head">{{ status_badge("review") if selected.kind == "review" else status_badge("ok") }}<span class="label">{{ selected.work }}{% if selected.episode %} · {{ selected.episode }}{% endif %}</span></div>
+    {%- set o = selected.output %}
+    {%- if o and o.kind == "video" %}
+    <div class="video"><video controls preload="none" playsinline width="100%" aria-label="{{ selected.work }} 산출물 영상" src="/jobs/{{ selected.id }}/video"></video></div>
+    {%- else %}
+    <div class="video"><span>영상 자리 (9:16)<br><span class="label">{% if o and o.files %}폴더 패키지 — 파일 {{ o.files|length }}개{% else %}산출물 없음{% endif %}</span></span></div>
+    {%- endif %}
+    <h3 class="label muted">캡컷 마무리 6단계</h3>
+    <ul class="log">
+      {%- for s in steps %}
+      <li class="muted"><span>{{ loop.index }} {{ s }}</span><span>확인 전</span></li>
+      {%- endfor %}
+    </ul>
+    <div class="box"><span class="label">업로드 대상 채널</span><strong class="num">{{ icon("tv") }} {{ selected.channel or "미지정" }}</strong>
+      <p class="label muted">[승인]하면 승인 기록에 이 채널이 함께 남습니다. 채널을 바꾸려면 승인 전에 원클릭 폼에서 고르세요.</p></div>
+    {{ button("업로드 예약", "secondary", ico="calendar", disabled=true, reason="승인 후에만 열립니다(업로드는 개발 8)") }}
+  </section>
+</div>
+{% endif %}
+<script src="/static/inbox.js"></script>
+{% endblock %}
+
+{% block aside %}
+<div class="aside-inner">
+  <div class="aside-head"><h2 class="section-title">점검 로그</h2><span class="label muted">공통 28항</span></div>
+  {%- if selected %}
+  {%- set ins = selected.inspect %}
+  {{ inspect_line(ins.ok, ins.warn, ins.fail) if ins else inspect_line() }}
+  <h3 class="label muted">승인 로그</h3>
+  <ul class="log num">
+    {%- for e in selected.log %}<li><span>{{ e.text }}</span><span>{{ e.at }}</span></li>{% else %}<li class="muted"><span>기록 없음</span></li>{%- endfor %}
+  </ul>
+  {%- else %}
+  <p class="label muted">선택한 카드가 없습니다.</p>
+  {%- endif %}
+</div>
+{% endblock %}

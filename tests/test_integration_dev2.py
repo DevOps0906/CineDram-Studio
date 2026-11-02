@@ -15,6 +15,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from _sf import sf  # noqa: E402
 from server import __main__ as smain  # noqa: E402
 from worker import __main__ as wmain  # noqa: E402
 from worker import queue, runner  # noqa: E402
@@ -140,7 +141,7 @@ class ClaimRaceTest(TmpBase):
         try:
             for i in range(N):
                 conn.execute("UPDATE jobs SET queue_state='finished', slot_id=NULL")
-                cur = conn.execute("INSERT INTO jobs(source_id, state, plan_path) VALUES (1,'building','p.json')")
+                cur = conn.execute("INSERT INTO jobs(source_id, state, plan_path) VALUES (1,'building',?)", (f"p{i}.json",))
                 job = cur.lastrowid
                 barrier.wait(60)
                 barrier.wait(60)
@@ -163,6 +164,7 @@ from pathlib import Path
 mode = (Path(__file__).with_name("mode.txt")).read_text().strip()
 print("엔진 출력 key=sk-ABCDEFGH12345678zzSECRET")
 if mode == "ok":
+    Path(sys.argv[2]).parent.joinpath("숏폼_상하템플릿.mp4").write_bytes(b"mp4")
     sys.exit(0)
 if mode == "p0":
     print("[P0-2] 사람 확인 필요")
@@ -192,7 +194,7 @@ class EndToEndTest(TmpBase):
         d.mkdir()
         plan_file = d / "컷표.json"
         plan_file.write_text(json.dumps({"meta": {"source_video": "원본.mp4"}, "cuts": []}), encoding="utf-8")
-        eng = runner.load_engine()
+        eng = sf
         plan = eng.load_plan(plan_file)
         (d / "기획승인.json").write_text(
             json.dumps({"plan_hash": plan["_hash"], "tts_hash": eng.tts_state_hash(plan)}), encoding="utf-8")
@@ -200,6 +202,7 @@ class EndToEndTest(TmpBase):
 
     def run_case(self, mode, timeout=60):
         (self.tmp / "mode.txt").write_text(mode, encoding="utf-8")
+        self.conn.execute("UPDATE jobs SET queue_state='finished', slot_id=NULL")  # 0003: 활성 plan_path 유일
         cur = self.conn.execute(
             "INSERT INTO jobs(source_id, state, plan_path, plan_hash) VALUES (1,'building','plans/컷표.json',?)",
             (self.plan_hash,))

@@ -1,0 +1,58 @@
+<!doctype html>
+{#- 셸. 자식 템플릿: {% extends "base.html" %}; 선택 변수 page(메뉴 id)·title·has_aside·aside_label·nav_counts(dict);
+    블록 content(본문)·aside(우측 열). 인라인 script/style 금지(CSP). -#}
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ title|default("CineDram Studio") }}{% endblock %} — CineDram Studio</title>
+<link rel="stylesheet" href="/static/_tokens.css">
+<link rel="stylesheet" href="/static/_app.css">
+<script src="/static/app.js"></script>
+</head>
+<body data-page="{{ page|default('') }}">
+<a class="skip-link" href="#main">본문으로 건너뛰기</a>
+{%- set counts = nav_counts|default({}) %}
+<div class="app{% if not has_aside %} no-aside{% endif %}">
+  <nav class="sidebar" aria-label="주 메뉴">
+    <div class="brand">{{ icon("film") }} <span class="brand-text">CineDram Studio</span></div>
+    {%- for group, items in NAV_GROUPS %}
+    {%- if not loop.first %}<div class="nav-sep"></div>{% endif %}
+    {%- if group != "홈" %}<span class="nav-group">{{ group }}</span>{% endif %}
+    {%- for id, href, ico, name in items %}
+      {%- if href %}
+    <a class="nav-item" href="{{ href }}"{% if id == page %} aria-current="page"{% endif %} title="{{ name }}">{{ icon(ico) }}<span class="nav-text">{{ name }}</span>{% if counts.get(id) %}<span class="count{% if id == 'inbox' %} hot{% endif %}">{{ counts[id] }}</span>{% endif %}</a>
+      {%- else %}
+    <a class="nav-item" aria-disabled="true" title="{{ name }} · 준비 중">{{ icon(ico) }}<span class="nav-text">{{ name }} · 준비 중</span></a>
+      {%- endif %}
+    {%- endfor %}
+    {%- endfor %}
+  </nav>
+  <div class="center">
+    <header class="topbar">
+      <button type="button" class="icon-btn only-tablet" data-act="menu" aria-label="메뉴 펼치기" aria-expanded="false">{{ icon("menu") }}</button>
+      <span class="brand">{{ icon("film") }} CineDram</span><span class="spacer"></span>
+      {%- if has_aside %}
+      <button type="button" class="icon-btn only-tablet" data-act="drawer" aria-expanded="false">{{ icon("panel") }}<span class="label">{{ aside_label|default("제작 현황") }}</span></button>
+      {%- endif %}
+      <button type="button" class="icon-btn" data-act="theme" aria-pressed="false" aria-label="다크 모드"><span class="theme-moon">{{ icon("moon") }}</span><span class="theme-sun">{{ icon("sun") }}</span></button>
+    </header>
+    <main class="main" id="main">
+      {%- block content %}{% endblock %}
+    </main>
+  </div>
+  {%- if has_aside %}
+  <aside class="aside" aria-label="{{ aside_label|default('제작 현황') }}">
+    <div class="only-tablet aside-close"><button type="button" class="icon-btn" data-act="drawer" aria-label="닫기">{{ icon("close") }}</button></div>
+    {%- block aside %}{% endblock %}
+  </aside>
+  {%- endif %}
+  <div class="scrim" data-act="drawer"></div>
+  <nav class="tabs" aria-label="하단 탭">
+    {%- for id, href, ico, name in TAB_ITEMS %}
+    <a href="{{ href }}"{% if id == page %} aria-current="page"{% endif %}>{{ icon(ico) }}{{ name }}{% if counts.get(id) %}<span class="count{% if id == 'inbox' %} hot{% endif %}">{{ counts[id] }}</span>{% endif %}</a>
+    {%- endfor %}
+  </nav>
+</div>
+</body>
+</html>

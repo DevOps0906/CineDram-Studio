@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import post_form, select_field, text_field, radio_card, button, banner, empty_state, status_badge, card %}
+{% block content %}
+{%- set v = values %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">만들기</h1>
+    <p class="page-sub muted">원본과 방식을 고르고 컷표 경로를 적으면 접수됩니다. 기획 승인과 영상 승인은 사람이 직접 합니다.</p>
+  </div>
+</div>
+<p class="label muted"><span class="req" aria-hidden="true">*</span> 표시는 필수 입력입니다.</p>
+
+{%- if form_error or errors %}<div class="banner" role="alert" tabindex="-1" autofocus>{{ icon("warn") }}<span class="grow">{{ form_error or "입력을 확인해 주세요. 표시된 항목을 고치면 다시 접수할 수 있습니다." }}</span></div>{% endif %}
+
+{%- if not sources %}
+{% call empty_state("원본 폴더를 먼저 등록하세요", "등록된 작품·원본이 없습니다. 원본을 등록하면 여기서 고를 수 있습니다.", "filex") %}{% endcall %}
+{%- else %}
+{% call post_form("/make", request.state.csrf_token) %}
+<div class="grid grid-2">
+  <section class="card" aria-labelledby="s-work">
+    <div class="card-head"><h2 id="s-work" class="card-title">1. 작품/원본</h2><span class="end label muted">보유 원본 {{ sources|length }}</span></div>
+    {{ select_field("source_id", "원본", source_options, value=v.source_id, error=errors.source_id, required=true, empty_label="원본을 고르세요") }}
+    <ul class="list" aria-label="원본 상태">
+      {%- for s in sources %}
+      <li class="label muted">{{ s.title }}{% if s.episode is not none %} · E{{ "%02d"|format(s.episode) }}{% endif %}
+        {% if not s.has_file %}{{ status_badge("nosrc") }}{% elif s.rights not in ("own", "licensed") %}{{ status_badge("rights") }}{% else %}{{ status_badge("ok") }}{% endif %}</li>
+      {%- endfor %}
+    </ul>
+    <p class="label muted">원본 없음은 접수되며 원본이 들어오면 이어서 제작합니다. 권리 미확인은 만들 수 있어도 영상 승인·업로드 경로가 잠깁니다.</p>
+  </section>
+
+  <section class="card" aria-labelledby="s-comp">
+    <h2 id="s-comp" class="card-title">2. 구성</h2>
+    <div class="stack" role="radiogroup" aria-required="true" aria-label=""{% if errors.rule_set %} aria-invalid="true" aria-describedby="rule_set-err"{% endif %}>
+      {%- for val, label, ok in rule_sets %}
+      {{ radio_card("rule_set", val, label, "rules/" ~ val ~ ".md" if ok else "초안 규칙 — 준비 중", checked=(v.rule_set == val), disabled=not ok, required=true) }}
+      {%- endfor %}
+    </div>
+    {%- if errors.rule_set %}<span class="field-error" id="rule_set-err">{{ icon("x") }}{{ errors.rule_set }}</span>{% endif %}
+  </section>
+
+  <section class="card span-all" aria-labelledby="s-plan">
+    <h2 id="s-plan" class="card-title">3. 컷표와 소재</h2>
+    {{ text_field("plan_path", "컷표 경로 (작업 루트 기준)", value=v.plan_path, error=errors.plan_path, required=true, placeholder="예: 작업/달빛_E04/컷표.json", maxlength=260, hint="받아쓰기·대본·컷표 자동 생성은 후속 개발입니다. 지금은 사람이나 스킬이 만든 컷표를 지정합니다.") }}
+    {{ select_field("topic_mode", "소재 모드", topic_modes, value=v.topic_mode, error=errors.topic_mode) }}
+    {{ text_field("channel_id", "채널 (선택)", value=v.channel_id, error=errors.channel_id, maxlength=64) }}
+    <h3 class="section-title">속도</h3>
+    <div class="stack" role="radiogroup" aria-required="true" aria-label=""{% if errors.speed %} aria-invalid="true" aria-describedby="speed-err"{% endif %}>
+      {%- for val, label, desc in speeds %}
+      {{ radio_card("speed", val, label, desc, checked=(v.speed == val), required=true) }}
+      {%- endfor %}
+    </div>
+    <h3 class="section-title">제작 모드</h3>
+    <div class="stack" role="radiogroup" aria-required="true" aria-label=""{% if errors.exec_mode %} aria-invalid="true" aria-describedby="exec_mode-err"{% endif %}>
+      {%- for val, label, desc in exec_modes %}
+      {{ radio_card("exec_mode", val, label, desc, checked=(v.exec_mode == val), required=true) }}
+      {%- endfor %}
+    </div>
+    {%- if errors.exec_mode %}<span class="field-error" id="exec_mode-err">{{ icon("x") }}{{ errors.exec_mode }}</span>{% endif %}
+    {%- if errors.speed %}<span class="field-error" id="speed-err">{{ icon("x") }}{{ errors.speed }}</span>{% endif %}
+    {{ button("접수", "strong", type="submit") }}
+    <p class="label muted">접수하면 제작 현황에 카드가 생기고, 기획 승인을 기다립니다.</p>
+  </section>
+</div>
+{% endcall %}
+{%- endif %}
+{% endblock %}

@@ -1,0 +1,39 @@
+stateDiagram-v2
+    direction TB
+    %% 범례: [서버] = 웹 서버 라우트·서비스가 일으키는 전이, [워커] = worker/runner.py가 일으키는 전이
+    %% held_human·running·waiting은 queue_state 값이라 state는 building·review·topic 그대로다.
+
+    [*] --> queued: [서버] R3·R4 작업 생성
+    queued --> matching: [서버] R3 접수 직후 확인
+    matching --> need_source: [서버] 원본 없음
+    matching --> topic: [서버] 원본·자막 확인
+    matching --> failed: 확인 실패(주체 미지정)
+    need_source --> topic: [서버] 원본 도착(폴더 감시)
+    topic --> building: [서버] R9 기획 승인 게이트(사람)
+    topic --> failed: 실패(주체 미지정)
+    building --> review: [워커] 엔진 성공(held_human 검수 대기)
+    building --> failed: [워커] 엔진 실패·시간 초과·경로 거부
+    building --> topic: [서버] R15 기획 수정으로 되돌리기(재승인 필요)
+    building --> blocked_disk: [워커] 디스크 부족(docs/01 기준, runner 미구현)
+    blocked_disk --> building: [워커] 여유 확보
+    review --> approved: [서버] R10 영상 승인 게이트(사람)
+    review --> topic: [서버] R11 수정 요청(재승인 필요)
+    review --> building: [서버] R12 다시 만들기(해시 동일 시만)
+    approved --> done: 업로드 단계(개발 8 범위 밖)
+    approved --> scheduled: 업로드 단계(개발 8 범위 밖)
+    scheduled --> done: 업로드 단계(개발 8 범위 밖)
+    scheduled --> uploading: 업로드 단계(개발 8 범위 밖)
+    scheduled --> blocked_auth: 업로드 단계(개발 8 범위 밖)
+    blocked_auth --> scheduled: 업로드 단계(개발 8 범위 밖)
+    uploading --> done: 업로드 단계(개발 8 범위 밖)
+    uploading --> failed: 업로드 단계(개발 8 범위 밖)
+    queued --> canceled: [서버] 취소
+    failed --> queued: 재시도(주체 docs/01 미지정)
+
+    note right of topic : 사람 게이트 1 R9 기획 승인. 순서 held_human → running(slot_id=approve, 조건부 UPDATE 선점) → building/waiting. 승인 실패 시 held_human으로 복귀. 파일 앞섬(DB 쓰기 실패)은 topic 유지, 자동 승격 금지
+    note right of review : 사람 게이트 2 R10 영상 승인. 조건 권리 own/licensed(DB) + output_id의 sha256을 서버가 재계산해 폼 값과 일치 + gate 서브프로세스 통과. 불일치는 409
+    note right of building : held_human 보류(해시 불일치·원본 경로 위반·사람 확인 필요) 시 state는 building 유지, R15로만 탈출
+
+    classDef gate fill:#fff3cd,stroke:#b58105,stroke-width:3px
+    class topic gate
+    class review gate

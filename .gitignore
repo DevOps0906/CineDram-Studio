@@ -33,3 +33,6 @@ var/
 *.db-wal
 *.db-shm
 *.bak
+
+# 화면 스크린샷(shot 산출물, 재생성 가능)
+design/shots/

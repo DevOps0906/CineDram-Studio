@@ -1,0 +1,126 @@
+{#- 공용 매크로 (C9). 가져오기: {% from "_macros.html" import status_badge, progress, post_form %}
+    컨텍스트가 필요 없다(csrf_token 은 인자로 받는다: 호출부는 request.state.csrf_token 을 넘긴다). |safe 금지. -#}
+
+{#- 상태 배지 5종: kind ∈ ok·review·nosrc·rights·disk (색 + 아이콘 + 텍스트) -#}
+{% macro status_badge(kind) -%}
+{%- set spec = {
+  "ok": ("b-ok", "circlecheck", "제작 가능"),
+  "review": ("b-review", "scaneye", "업로드 검토 필요"),
+  "nosrc": ("b-nosrc", "filex", "원본 없음"),
+  "rights": ("b-rights", "shield", "권리 미확인"),
+  "disk": ("b-disk", "disk", "디스크 부족"),
+}.get(kind) -%}
+{%- if spec %}<span class="badge {{ spec[0] }}">{{ icon(spec[1]) }}{{ spec[2] }}</span>{% endif -%}
+{%- endmacro %}
+
+{#- 구성 배지(규칙 세트 이름): 아이콘 없음 -#}
+{% macro comp_badge(text) -%}<span class="badge b-comp">{{ text }}</span>{%- endmacro %}
+
+{% macro count(n, hot=false) -%}<span class="count{% if hot %} hot{% endif %} num">{{ n }}</span>{%- endmacro %}
+
+{#- 5단계 진행바. now = 진행 중 칸(0~4, 5 = 모두 완료). blocked = 막힘 배지 kind(진행 중 칸 옆 표시) -#}
+{% macro progress(now, blocked=none) -%}
+{%- set steps = ["소재", "원본", "제작", "검수", "업로드"] -%}
+<ol class="progress" role="list" aria-label="진행 단계">
+  {%- for s in steps %}
+  <li class="{% if loop.index0 < now %}done{% elif loop.index0 == now %}now{% endif %}"{% if loop.index0 == now %} aria-current="step"{% endif %}><span class="step-name">{% if loop.index0 < now %}{{ icon("check") }}{% endif %}{{ s }}{% if loop.index0 < now %}<span class="sr-only"> (완료)</span>{% endif %}{% if loop.index0 == now and blocked %} {{ status_badge(blocked) }}{% endif %}</span></li>
+  {%- endfor %}
+</ol>
+{%- endmacro %}
+
+{#- 카드. {% call card(cls="") %}...{% endcall %} -#}
+{% macro card(cls="", tag="div") -%}
+<{{ tag }} class="card {{ cls }}">{{ caller() }}</{{ tag }}>
+{%- endmacro %}
+
+{#- 카드 머리줄: 구성 배지 · 작품명 · 경과 시간(우측) -#}
+{% macro card_head(title, comp=none, elapsed=none) -%}
+<div class="card-head">{% if comp %}{{ comp_badge(comp) }}{% endif %}<strong>{{ title }}</strong>{% if elapsed %}<span class="end label muted num">{{ elapsed }}</span>{% endif %}</div>
+{%- endmacro %}
+
+{#- 점검 줄: 값이 없으면 "미실행"(개발 4 전) -#}
+{% macro inspect_line(ok=none, warn=none, fail=none) -%}
+{%- if ok is none and warn is none and fail is none -%}
+<div class="inspect muted">자동 점검 미실행</div>
+{%- else -%}
+<div class="inspect"><span class="t-ok">{{ icon("check") }}통과 {{ ok or 0 }}</span><span class="t-warn">{{ icon("warn") }}경고 {{ warn or 0 }}</span><span class="t-fail">{{ icon("x") }}실패 {{ fail or 0 }}</span></div>
+{%- endif -%}
+{%- endmacro %}
+
+{#- 배너: kind ∈ error(기본)·info·ok -#}
+{% macro banner(text, kind="error") -%}
+<div class="banner{% if kind != 'error' %} {{ kind }}{% endif %}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ icon("warn" if kind == "error" else "circlecheck") }}<span class="grow">{{ text }}</span></div>
+{%- endmacro %}
+
+{% macro empty_state(title, desc=none, ico="inbox") -%}
+<div class="empty">{{ icon(ico) }}<strong>{{ title }}</strong>{% if desc %}<p class="muted">{{ desc }}</p>{% endif %}{{ caller() if caller else "" }}</div>
+{%- endmacro %}
+
+{#- 스켈레톤(로딩) -#}
+{% macro skeleton(lines=3) -%}
+<div class="card" aria-busy="true">{% for i in range(lines) %}<div class="skel {{ ['w90', 'w70', 'w40'][loop.index0 % 3] }}"></div>{% endfor %}<span class="sr-only">불러오는 중</span></div>
+{%- endmacro %}
+
+{#- 버튼. variant ∈ primary·secondary·strong·link-sm·ghost·danger. 비활성은 disabled + 이유(title·sr-only).
+    href 가 있으면 링크, 없으면 button. name/value 로 어떤 버튼인지 구분 가능. -#}
+{% macro button(label, variant="secondary", ico=none, type="button", disabled=false, reason=none, href=none, name=none, value=none) -%}
+{%- if href and not disabled -%}
+<a class="btn btn-{{ variant }}" href="{{ href }}">{% if ico %}{{ icon(ico) }}{% endif %}{{ label }}</a>
+{%- else -%}
+<button class="btn btn-{{ variant }}" type="{{ type }}"{% if name %} name="{{ name }}"{% endif %}{% if value is not none %} value="{{ value }}"{% endif %}{% if disabled %} disabled aria-disabled="true"{% if reason %} title="{{ reason }}"{% endif %}{% endif %}>{% if ico %}{{ icon(ico) }}{% endif %}{{ label }}{{ icon("loader", "btn-spin") }}{% if disabled and reason %}<span class="sr-only"> — {{ reason }}</span>{% endif %}</button>
+{%- endif -%}
+{%- endmacro %}
+
+{#- POST 폼. CSRF hidden 필드를 항상 넣는다. lock=true 면 중복 제출 잠금(app.js). {% call post_form(action, csrf_token) %}...{% endcall %} -#}
+{% macro post_form(action, csrf_token, lock=true, cls="") -%}
+<form method="post" action="{{ action }}"{% if lock %} data-lock{% endif %}{% if cls %} class="{{ cls }}"{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {{ caller() }}
+</form>
+{%- endmacro %}
+
+{% macro hidden(name, value) -%}<input type="hidden" name="{{ name }}" value="{{ value }}">{%- endmacro %}
+
+{#- 필드 공통: 라벨 + 입력 + 힌트 + 필드별 오류(role=alert, aria-describedby 연결) -#}
+{% macro _meta(name, error, hint) -%}
+{%- if hint %}<span class="hint" id="{{ name }}-hint">{{ hint }}</span>{% endif -%}
+{%- if error %}<span class="field-error" id="{{ name }}-err">{{ icon("x") }}{{ error }}</span>{% endif -%}
+{%- endmacro %}
+
+{% macro _desc(name, error, hint) -%}
+{%- if error or hint %} aria-describedby="{{ (name ~ '-err') if error else '' }}{{ ' ' if error and hint else '' }}{{ (name ~ '-hint') if hint else '' }}"{% endif -%}
+{%- endmacro %}
+
+{% macro text_field(name, label, value="", error=none, hint=none, required=false, type="text", placeholder=none, maxlength=none) -%}
+<div class="field"><label for="f-{{ name }}">{{ label }}{% if required %} <span class="req" aria-hidden="true">*</span>{% endif %}</label>
+<input class="input" id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if required %} required{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ _desc(name, error, hint) }}>
+{{ _meta(name, error, hint) }}</div>
+{%- endmacro %}
+
+{#- options: [(value, 라벨), ...] -#}
+{% macro select_field(name, label, options, value="", error=none, hint=none, required=false, empty_label=none) -%}
+<div class="field"><label for="f-{{ name }}">{{ label }}{% if required %} <span class="req" aria-hidden="true">*</span>{% endif %}</label>
+<select class="input" id="f-{{ name }}" name="{{ name }}"{% if required %} required{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ _desc(name, error, hint) }}>
+  {%- if empty_label %}<option value="">{{ empty_label }}</option>{% endif %}
+  {%- for v, text in options %}<option value="{{ v }}"{% if v|string == value|string %} selected{% endif %}>{{ text }}</option>{% endfor %}
+</select>
+{{ _meta(name, error, hint) }}</div>
+{%- endmacro %}
+
+{% macro textarea_field(name, label, value="", error=none, hint=none, maxlength=none, rows=4) -%}
+<div class="field"><label for="f-{{ name }}">{{ label }}</label>
+<textarea class="input" id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ _desc(name, error, hint) }}>{{ value }}</textarea>
+{{ _meta(name, error, hint) }}</div>
+{%- endmacro %}
+
+{#- 선택 카드(라디오): 방식 카드·제작 모드 -#}
+{% macro radio_card(name, value, title, desc=none, checked=false, disabled=false, required=false) -%}
+<label class="card pick"><input type="radio" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}{% if required %} required{% endif %}>
+  <span class="card-head"><span class="radio-dot" aria-hidden="true"></span><strong>{{ title }}</strong></span>
+  {%- if desc %}<span class="label muted">{{ desc }}</span>{% endif %}</label>
+{%- endmacro %}
+
+{#- 체크박스(44px 터치): 승인함 체크 6칸·수정 대상 칩 -#}
+{% macro check_box(name, value, label, checked=false) -%}
+<label class="check"><input type="checkbox" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}>{{ label }}</label>
+{%- endmacro %}

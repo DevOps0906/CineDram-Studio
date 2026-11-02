@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import banner %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">제작 현황</h1>
+    <p class="page-sub label muted">3초마다 갱신 · <span id="poll-status">방금 갱신</span></p>
+  </div>
+  <p class="label muted">진행 중 {{ running|length }} · 승인 대기 {{ waiting|length }}</p>
+</div>
+<div id="poll-banner" hidden>{{ banner("현황을 불러오지 못했습니다. 아래는 마지막으로 받은 내용입니다.") }}</div>
+<div id="jobs" data-fragment="/status/fragment">
+  {% include "_status_list.html" %}
+</div>
+<script src="/static/status.js"></script>
+{% endblock %}

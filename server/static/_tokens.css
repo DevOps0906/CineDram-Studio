@@ -1,0 +1,115 @@
+/* _tokens.css — design/tokens.css 의 정적 사본 (시안 전용, 브라우저가 @theme 를 읽지 못해 :root 로 옮김).
+   정답은 ../tokens.css. 값이 바뀌면 이 파일도 같은 변수명·값으로 맞춘다. 손으로 새 토큰을 추가하지 않는다. */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f5f6f8;
+  --color-text: #1c2230;
+  --color-text-muted: #566072;
+  --color-border: #e3e6eb;
+  --color-input: #7b8496;
+  --color-focus: #2160e0;
+
+  --color-primary: #2160e0;
+  --color-primary-fg: #ffffff;
+  --color-strong: #1c2230;
+  --color-strong-fg: #ffffff;
+  --color-disabled: #eceef1;
+  --color-disabled-fg: #5f6778;
+  --color-danger: #c42d34;
+  --color-danger-fg: #ffffff;
+  --color-success: #1a7a48;
+  --color-success-fg: #ffffff;
+
+  --color-info-subtle: #e8effd;
+  --color-info-subtle-fg: #1a4fbf;
+  --color-success-subtle: #e2f3e9;
+  --color-success-subtle-fg: #145c37;
+  --color-neutral-subtle: #eceef1;
+  --color-neutral-subtle-fg: #3f4655;
+  --color-danger-subtle: #fde8e8;
+  --color-danger-subtle-fg: #a61f26;
+  --color-warning-subtle: #fdeedc;
+  --color-warning-subtle-fg: #8a4300;
+
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+
+  --text-page-title: 22px;
+  --text-page-title--line-height: 1.3;
+  --text-card-title: 16px;
+  --text-card-title--line-height: 1.4;
+  --text-body: 14px;
+  --text-body--line-height: 1.6;
+  --text-label: 12px;
+  --text-label--line-height: 1.4;
+  --text-score: 26px;
+  --text-score--line-height: 1.1;
+
+  --spacing: 4px;
+  --size-touch: 44px;
+  --size-control: 36px;
+  --size-pill: 28px;
+  --size-chip: 20px;
+  --size-row: 44px;
+  --size-row-compact: 32px;
+  --size-sidebar: 232px;
+  --size-tabbar: 36px;
+  --size-progress: 6px;
+
+  --radius-badge: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-sheet: 14px;
+  --radius-pill: 9999px;
+
+  --shadow-card: 0 1px 2px rgb(28 34 48 / 0.05);
+  --shadow-overlay: 0 6px 20px rgb(28 34 48 / 0.14);
+
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (width >= 768px) {
+  :root { --text-page-title: 26px; --text-card-title: 18px; --text-body: 15px; --text-label: 13px; --text-score: 30px; }
+}
+@media (width >= 1200px) {
+  :root { --text-page-title: 32px; --text-card-title: 20px; --text-body: 16px; --text-label: 14px; --text-score: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-base: 0ms; }
+}
+
+.dark {
+  --color-bg: #0f1729;
+  --color-surface: #172138;
+  --color-text: #e6ebf5;
+  --color-text-muted: #9eabc4;
+  --color-border: #26324e;
+  --color-input: #6b7a99;
+  --color-focus: #6fa0ff;
+
+  --color-primary: #6fa0ff;
+  --color-primary-fg: #0c1630;
+  --color-strong: #e6ebf5;
+  --color-strong-fg: #0f1729;
+  --color-disabled: #222d47;
+  --color-disabled-fg: #9aa6bd;
+  --color-danger: #ff8a8f;
+  --color-danger-fg: #330b0e;
+  --color-success: #5fd394;
+  --color-success-fg: #0b2a1a;
+
+  --color-info-subtle: #1c2f5c;
+  --color-info-subtle-fg: #b9cfff;
+  --color-success-subtle: #133a2c;
+  --color-success-subtle-fg: #9be4bb;
+  --color-neutral-subtle: #232e47;
+  --color-neutral-subtle-fg: #c7cfdf;
+  --color-danger-subtle: #4a1c26;
+  --color-danger-subtle-fg: #ffbcbf;
+  --color-warning-subtle: #45300f;
+  --color-warning-subtle-fg: #f8c77a;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-overlay: 0 6px 20px rgb(0 0 0 / 0.5);
+}

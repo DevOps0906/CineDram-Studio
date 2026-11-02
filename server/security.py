@@ -22,6 +22,8 @@ SECURITY_HEADERS = (
     (b"cache-control", b"no-store"),
     (b"x-frame-options", b"DENY"),
     (b"x-content-type-options", b"nosniff"),
+    (b"content-security-policy",
+     b"default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'"),
 )
 _SECURITY_NAMES = {k for k, _ in SECURITY_HEADERS}
 

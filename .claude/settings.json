@@ -18,7 +18,15 @@
       "Read(./**/coverage/**)",
       "Read(./**/*.lock)",
       "Read(./**/pnpm-lock.yaml)",
-      "Read(./**/package-lock.json)"
+      "Read(./**/package-lock.json)",
+      "Bash(*shortsflow.py approve*)",
+      "PowerShell(*shortsflow.py approve*)",
+      "Bash(curl*:8765*)",
+      "Bash(*Invoke-WebRequest*:8765*)",
+      "PowerShell(*Invoke-WebRequest*:8765*)",
+      "PowerShell(*Invoke-RestMethod*:8765*)",
+      "Bash(sqlite3*studio.db*)",
+      "PowerShell(*sqlite3*studio.db*)"
     ]
   }
 }

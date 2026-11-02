@@ -12,6 +12,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from _sf import sf  # noqa: E402
 from core import paths  # noqa: E402
 from worker import __main__ as wmain  # noqa: E402
 from worker import queue, runner  # noqa: E402
@@ -61,7 +62,7 @@ class Base(unittest.TestCase):
         plan_file = d / "컷표.json"
         plan_file.write_text(json.dumps({"meta": {"source_video": "원본.mp4"}, "cuts": []}), encoding="utf-8")
         if approve:
-            eng = runner.load_engine()
+            eng = sf
             plan = eng.load_plan(plan_file)
             ap = {"plan_hash": plan["_hash"], "tts_hash": eng.tts_state_hash(plan)}
             (d / "기획승인.json").write_text(json.dumps(ap), encoding="utf-8")
@@ -75,7 +76,7 @@ class MigrationTest(Base):
     def test_plan_path_column_and_slot_unique(self):
         cols = [r[1] for r in self.conn.execute("PRAGMA table_info(jobs)")]
         self.assertIn("plan_path", cols)
-        a, b = self.add_job(), self.add_job()
+        a, b = self.add_job("plans/a.json"), self.add_job("plans/b.json")  # 0003: 활성 plan_path 유일
         self.conn.execute("UPDATE jobs SET queue_state='running', slot_id='gpu0' WHERE id=?", (a,))
         with self.assertRaises(sqlite3.IntegrityError):  # DB 도 슬롯 중복 점유를 막는다
             self.conn.execute("UPDATE jobs SET queue_state='running', slot_id='gpu0' WHERE id=?", (b,))
@@ -95,8 +96,8 @@ class MigrationTest(Base):
 
 class ClaimTest(Base):
     def test_concurrent_claim_only_one_wins(self):
-        for _ in range(3):
-            self.add_job()
+        for i in range(3):
+            self.add_job(f"plans/c{i}.json")
         results, barrier = [], threading.Barrier(4)
 
         def worker():
@@ -115,7 +116,7 @@ class ClaimTest(Base):
         self.assertEqual(n, 1)  # 슬롯 동시 점유 1
 
     def test_slot_busy_blocks_second_claim(self):
-        a, b = self.add_job(), self.add_job()
+        a, b = self.add_job("plans/a.json"), self.add_job("plans/b.json")  # 0003: 활성 plan_path 유일
         self.assertEqual(queue.claim_next(self.conn), a)
         self.assertIsNone(queue.claim_next(self.conn))
         queue.transition(self.conn, a, "review", "finished", message="ok")
@@ -162,7 +163,7 @@ class HashRecheckTest(Base):
         for bad in ("../밖.mp4", "C:/x.mp4", None):
             meta = {"source_video": bad} if bad else {}
             plan_file.write_text(json.dumps({"meta": meta, "cuts": []}), encoding="utf-8")
-            eng = runner.load_engine()
+            eng = sf
             plan = eng.load_plan(plan_file)
             (plan_file.parent / "기획승인.json").write_text(json.dumps(
                 {"plan_hash": plan["_hash"], "tts_hash": eng.tts_state_hash(plan)}), encoding="utf-8")
@@ -187,7 +188,7 @@ class HashRecheckTest(Base):
         else:
             os.symlink(outside, link)
         plan_file.write_text(json.dumps({"meta": {"source_video": "링크/a.mp4"}, "cuts": []}), encoding="utf-8")
-        eng = runner.load_engine()
+        eng = sf
         plan = eng.load_plan(plan_file)
         (plan_file.parent / "기획승인.json").write_text(json.dumps(
             {"plan_hash": plan["_hash"], "tts_hash": eng.tts_state_hash(plan)}), encoding="utf-8")
@@ -203,14 +204,27 @@ class HashRecheckTest(Base):
         j = self.add_job()
         queue.claim_next(self.conn)
         stub = self.tmp / "ok.py"
-        stub.write_text("import sys; sys.exit(0)", encoding="utf-8")
+        stub.write_text("import sys, pathlib; pathlib.Path(sys.argv[2]).parent.joinpath('숏폼_상하템플릿.mp4').write_bytes(b'mp4'); sys.exit(0)", encoding="utf-8")
         self.assertEqual(runner.run_job(self.conn, j, self.tmp, engine=stub), ("review", "held_human"))
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM outputs WHERE job_id=?", (j,)).fetchone()[0], 1)
+
+    def test_success_without_output_is_held(self):  # C14
+        self.write_plan(approve=True)
+        j = self.add_job()
+        queue.claim_next(self.conn)
+        stub = self.tmp / "noout.py"
+        stub.write_text("import sys; sys.exit(0)", encoding="utf-8")
+        self.assertEqual(runner.run_job(self.conn, j, self.tmp, engine=stub), ("building", "held_human"))
+        self.assertIn("산출물 없음", self.job(j)[3])
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM outputs").fetchone()[0], 0)
 
 
 class ExitCodeTest(Base):
     def run_stub(self, code, text="", timeout=30, sleep=0):
         stub = self.tmp / "stub.py"
-        stub.write_text(f"import sys, time; print({text!r}); time.sleep({sleep}); sys.exit({code})",
+        stub.write_text(f"import sys, time, pathlib; print({text!r}); time.sleep({sleep})\n"
+                        f"if {code} == 0: pathlib.Path(sys.argv[2]).parent.joinpath('숏폼_상하템플릿.mp4').write_bytes(b'x')\n"
+                        f"sys.exit({code})",
                         encoding="utf-8")
         self.write_plan()
         j = self.add_job()
@@ -299,7 +313,7 @@ class StartupTest(Base):
             pass
 
     def test_old_schema_refused(self):
-        self.conn.execute("DELETE FROM schema_migrations WHERE version='0002'")
+        self.conn.execute("DELETE FROM schema_migrations WHERE version='0003'")
         with self.assertRaises(queue.SchemaTooOld):
             queue.check_schema(self.conn)
         lock = self.tmp / "var" / "worker.lock"

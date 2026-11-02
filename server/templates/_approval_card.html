@@ -1,0 +1,84 @@
+{#- 승인 카드 한 장. 컨텍스트: c(카드 dict), selected, targets, steps, request. 카드마다 폼 1개 — 버튼은 formaction 으로 R10~R13 에 나눈다.
+    배리언트: 일반 / 권리 미확인(보관) / 점검 실패(승인 비활성) / 처리 중(c.busy) / 승인됨. -#}
+{% from "_macros.html" import button, status_badge, inspect_line %}
+{% macro act(label, variant, ico=none, action=none, disabled=false, reason=none, busy=false, describedby=none) -%}
+<button class="btn btn-{{ variant }}" type="submit"{% if describedby %} aria-describedby="{{ describedby }}" aria-disabled="true" data-needs-checks{% endif %}{% if action %} formaction="{{ action }}"{% endif %}{% if disabled %} disabled aria-disabled="true"{% if reason %} title="{{ reason }}"{% endif %}{% endif %}{% if busy %} aria-busy="true"{% endif %}>{% if ico %}{{ icon(ico) }}{% endif %}{{ label }}{{ icon("loader", "btn-spin") }}{% if disabled and reason %}<span class="sr-only"> — {{ reason }}</span>{% endif %}</button>
+{%- endmacro %}
+{%- set o = c.output %}
+{%- set ins = c.inspect %}
+{%- set fail = ins.fail if ins else 0 %}
+{%- set base = "/jobs/" ~ c.id %}
+<article class="card{% if selected and c.id == selected.id %} selected{% endif %}" id="card-{{ c.id }}" data-card="{{ c.id }}" aria-label="{{ c.work }} {{ c.episode }} 승인 카드{% if c.kind == 'review' and not c.rights_ok %} — 권리 미확인{% elif fail %} — 점검 실패{% elif c.busy %} — 처리 중{% elif c.kind == 'approved' %} — 승인됨{% endif %}"{% if c.busy %} aria-busy="true"{% endif %}>
+  <div class="card-head">
+    {%- if c.kind == "approved" %}<span class="badge b-ok">{{ icon("circlecheck") }}승인됨</span>{% endif %}
+    {%- if c.kind == "review" and not c.rights_ok %}{{ status_badge("rights") }}{% endif %}
+    {%- if c.comp %}<span class="badge b-comp">{{ c.comp }}</span>{% endif %}
+    <span class="label">{{ c.work }}{% if c.episode %} · {{ c.episode }}{% endif %}</span>
+    {%- if c.elapsed %}<span class="end label muted num">{{ c.elapsed }}</span>{% endif %}
+  </div>
+  <h2 class="card-title clamp-2"><a href="/inbox?job={{ c.id }}">{{ c.title }}</a></h2>
+
+  {%- if c.kind == "approved" %}
+  <p class="label muted num">{% for e in c.log %}{% if loop.first %}{{ e.text }} · {{ e.at }}{% endif %}{% endfor %} · 권리 {{ c.rights or "미확인" }}</p>
+  {%- if c.channel %}<p class="label num">{{ icon("tv") }} 업로드 대상 채널: <strong>{{ c.channel }}</strong></p>{% endif %}
+  {{ button("업로드 예약", "primary", ico="calendar", disabled=true, reason="업로드 예약은 개발 8에서 열립니다") }}
+
+  {%- else %}
+  {%- if o and o.kind == "video" %}
+  <details class="vid"><summary>{{ icon("play") }}영상 확인</summary><div class="video"><video controls preload="none" playsinline width="100%" aria-label="{{ c.work }} 산출물 영상" src="/jobs/{{ c.id }}/video"></video></div></details>
+  {%- elif o and o.kind == "folder" %}
+  <details class="vid"><summary>{{ icon("play") }}패키지 파일 {{ o.files|length }}개</summary><ul class="log">{% for f in o.files %}<li><span>{{ f }}</span></li>{% endfor %}</ul></details>
+  {%- else %}
+  <p class="label muted">{{ icon("filex") }} 산출물을 찾을 수 없습니다 — 다시 만들기가 필요합니다.</p>
+  {%- endif %}
+  {{ inspect_line(ins.ok, ins.warn, ins.fail) if ins else inspect_line() }}
+  <details class="vid"><summary>{{ icon("chevron") }}채널·승인 로그</summary>
+    <p class="label num">{{ icon("tv") }} 업로드 대상 채널: <strong>{{ c.channel or "미지정" }}</strong></p>
+    <ul class="log num">{% for e in c.log %}<li><span>{{ e.text }}</span><span>{{ e.at }}</span></li>{% else %}<li class="muted"><span>기록 없음</span></li>{% endfor %}</ul>
+  </details>
+
+  <form method="post" action="{{ base }}/approve-video"{% if not c.busy %} data-lock{% endif %} data-card-form>
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <input type="hidden" name="confirm" value="yes">
+    <input type="hidden" name="plan_hash" value="{{ o.plan_hash if o else c.plan_hash }}">
+    <input type="hidden" name="output_id" value="{{ o.id if o else '' }}">
+    <input type="hidden" name="sha256" value="{{ o.sha256 if o else '' }}">
+    {%- if c.rights_ok and not c.busy %}
+    <div class="checks" role="group" aria-label="캡컷 마무리 확인">
+      {%- for s in steps %}
+      <label class="check" title="{{ loop.index }} {{ s }}"><input type="checkbox" name="chk_{{ loop.index }}" value="yes"><span class="sr-only">{{ s }}</span><span aria-hidden="true">{{ loop.index }}</span></label>
+      {%- endfor %}
+      <span class="label muted">(캡컷)</span>
+    </div>
+    <p class="label muted" id="chk-hint-{{ c.id }}" role="status" data-chk-hint>체크 6칸 남음</p>
+    {%- endif %}
+    <details class="vid"><summary>{{ icon("chevron") }}수정 요청 내용 (선택)</summary>
+      <div class="field"><label for="note-{{ c.id }}">메모</label><textarea class="input" id="note-{{ c.id }}" name="note" rows="3" maxlength="500"></textarea></div>
+      <div class="checks" role="group" aria-label="수정 대상">
+        {%- for v, label in targets %}<label class="check"><input type="checkbox" name="targets" value="{{ v }}">{{ label }}</label>{% endfor %}
+      </div>
+    </details>
+
+    {%- if c.busy %}
+    <div class="decide">{{ act("승인 중", "primary", ico="loader", disabled=true, busy=true) }}{{ act("수정 요청", "secondary", disabled=true) }}{{ act("다시 만들기", "secondary", disabled=true) }}</div>
+    {%- elif not c.rights_ok %}
+    <p class="label muted">권리(rights_status)가 확인되기 전에는 업로드 경로가 열리지 않습니다.</p>
+    <div class="decide">
+      {%- if c.held %}<span class="label muted">보관됨</span>{% else %}{{ act("보관", "secondary", ico="archive", action=base ~ "/hold") }}{% endif %}
+      {{ act("수정 요청", "secondary", action=base ~ "/request-change") }}{{ act("다시 만들기", "secondary", action=base ~ "/rebuild") }}
+    </div>
+    {%- elif fail %}
+    <div class="decide">
+      {{ act("수정 요청", "secondary", action=base ~ "/request-change") }}{{ act("다시 만들기", "secondary", action=base ~ "/rebuild") }}
+      {{ act("승인", "primary", disabled=true, reason="점검 실패 " ~ fail ~ "건" ~ (": " ~ ins.fail_reason if ins.fail_reason else "")) }}
+    </div>
+    <p class="label t-fail">승인 불가 — 점검 실패 {{ fail }}건{% if ins.fail_reason %}({{ ins.fail_reason }}){% endif %}</p>
+    {%- else %}
+    <div class="decide">
+      {%- if o and o.kind in ("video", "folder") %}{{ act("승인", "primary", describedby="chk-hint-" ~ c.id) }}{% else %}{{ act("승인", "primary", disabled=true, reason="확인할 산출물이 없습니다") }}{% endif %}
+      {{ act("수정 요청", "secondary", action=base ~ "/request-change") }}{{ act("다시 만들기", "secondary", action=base ~ "/rebuild") }}
+    </div>
+    {%- endif %}
+  </form>
+  {%- endif %}
+</article>
