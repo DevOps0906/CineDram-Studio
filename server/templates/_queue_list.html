@@ -1,0 +1,81 @@
+{% from "_macros.html" import card_head, post_form, hidden, empty_state %}
+{%- macro job_row(j) %}
+<article class="card" id="job-{{ j.id }}" data-job="{{ j.id }}" data-group="{{ j.group }}">
+  {{ card_head(j.title, j.comp, j.elapsed) }}
+  <div class="row">
+    {%- if j.running %}<span class="badge b-review">{{ icon("loader", "spin") }}제작 중</span>
+    {%- elif j.group == "wait" %}<span class="badge b-nosrc">{{ icon("clock") }}대기 순번 {{ j.order }}</span>
+    {%- elif j.group == "human" %}<span class="badge b-review">{{ icon("scaneye") }}{{ j.note }}</span>
+    {%- elif j.group == "resource" %}<span class="badge b-disk">{{ icon("disk") }}자원 대기</span>
+    {%- elif j.group == "pause" %}<span class="badge b-disk">{{ icon("clock") }}일시정지</span>
+    {%- else %}<span class="badge b-rights">{{ icon("x") }}실패</span>{% endif %}
+    <span class="label muted">모드 {{ j.mode }}</span>
+    {%- if j.running %}<span class="label muted">GPU 슬롯 사용</span>{% endif %}
+    {%- if j.reason %}<span class="label muted">{{ j.reason }}</span>{% endif %}
+  </div>
+  <div class="row">
+    {%- if j.can_move %}
+    {% call post_form("/jobs/" ~ j.id ~ "/priority", csrf, cls="row") %}
+      {{ hidden("confirm", "yes") }}
+      <button class="btn btn-secondary" type="submit" name="dir" value="up" aria-label="앞당기기 — {{ j.title }}">앞당기기</button>
+      <button class="btn btn-secondary" type="submit" name="dir" value="down" aria-label="미루기 — {{ j.title }}">미루기</button>
+    {% endcall %}
+    {%- endif %}
+    {%- if j.can_pause %}
+    {% call post_form("/jobs/" ~ j.id ~ "/pause", csrf) %}
+      {{ hidden("confirm", "yes") }}
+      <button class="btn btn-secondary" type="submit" aria-label="일시정지 — {{ j.title }}">일시정지</button>
+    {% endcall %}
+    {%- endif %}
+    {%- if j.can_resume %}
+    {% call post_form("/jobs/" ~ j.id ~ "/resume", csrf) %}
+      {{ hidden("confirm", "yes") }}
+      <button class="btn btn-primary" type="submit" aria-label="재개 — {{ j.title }}">{{ icon("play") }}재개</button>
+    {% endcall %}
+    {%- endif %}
+    {%- if j.can_retry %}
+    {% call post_form("/jobs/" ~ j.id ~ "/retry", csrf) %}
+      {{ hidden("confirm", "yes") }}
+      <button class="btn btn-secondary" type="submit" aria-label="재시도 — {{ j.title }}">{{ icon("refresh") }}재시도</button>
+    {% endcall %}
+    {%- endif %}
+    {%- if j.human_link %}<a class="btn btn-link-sm" href="{{ j.human_link }}">확인하러 가기</a>{% endif %}
+    {%- if j.can_cancel %}
+    {% call post_form("/jobs/" ~ j.id ~ "/cancel", csrf) %}
+      {{ hidden("confirm", "yes") }}
+      {{ hidden("next", "queue") }}
+      <button class="btn btn-ghost" type="submit" data-confirm="{{ '실행 중인 작업을 취소합니다. 몇 초 안에 제작이 멈추고 되돌릴 수 없습니다. 취소할까요?' if j.running else '이 작업을 큐에서 뺍니다. 취소할까요?' }}" aria-label="취소 — {{ j.title }}">{{ icon("x") }}취소</button>
+    {% endcall %}
+    {%- endif %}
+  </div>
+</article>
+{%- endmacro %}
+<div class="stack">
+  <div class="grid grid-2">
+    <section class="card" aria-label="GPU 슬롯">
+      <div class="card-head"><span class="label muted">GPU 슬롯 · 렌더·받아쓰기는 한 번에 1편</span></div>
+      <span class="score num">GPU {{ slots.gpu_used }}/{{ slots.gpu_total }}</span>
+    </section>
+    <section class="card" aria-label="LLM 슬롯">
+      <div class="card-head"><span class="label muted">LLM 슬롯</span></div>
+      <span class="score num">LLM 0/1</span> <span class="label muted">· 미사용</span>
+    </section>
+  </div>
+  {%- if not sections %}
+    {%- if total == 0 and not q and flt == "all" %}
+  {% call empty_state("대기 중인 작업이 없습니다", "원클릭 제작에서 작업을 추가하면 여기서 순서를 정할 수 있습니다.", "layers") %}
+  <a class="btn btn-primary" href="/make/oneclick">{{ icon("plus") }}원클릭 제작에서 추가</a>
+  {% endcall %}
+    {%- else %}
+  {% call empty_state("조건에 맞는 작업이 없습니다", "필터나 검색어를 바꿔 보세요.", "layers") %}
+  <a class="btn btn-secondary" href="/queue">전체 보기</a>
+  {% endcall %}
+    {%- endif %}
+  {%- else %}
+  {%- for s in sections %}
+  <h2 class="label muted">{{ s.label }} <span class="count num">{{ s.count }}</span></h2>
+  {%- for j in s.jobs %}{{ job_row(j) }}{% endfor %}
+  {%- endfor %}
+  {%- if more %}<a class="btn btn-secondary" href="{{ more_url }}">더 보기</a>{% endif %}
+  {%- endif %}
+</div>

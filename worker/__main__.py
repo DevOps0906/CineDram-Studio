@@ -58,6 +58,9 @@ def main(argv=None, db_path=DB_PATH, lock_path=LOCK_PATH, root=ROOT):
                 time.sleep(POLL_SEC)
     except KeyboardInterrupt:
         return 0
+    except runner.EngineKillFailed as e:
+        print(f"정지: 작업 {e} 엔진 종료 실패 - 수동 확인 필요", file=sys.stderr)
+        return 3
     finally:
         lock.release()
 

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import banner %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">대기 큐</h1>
+    <p class="page-sub label muted">3초마다 갱신 · <span id="poll-status">방금 갱신</span></p>
+  </div>
+  <a class="btn btn-secondary" href="/make/oneclick">{{ icon("plus") }}원클릭 제작에서 추가</a>
+</div>
+<div id="poll-banner" hidden>{{ banner("큐를 불러오지 못했습니다. 아래는 마지막으로 받은 내용입니다.") }}</div>
+<div class="stack">
+  <form method="get" action="/queue" class="pills" role="group" aria-label="상태 필터">
+    {%- if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    {%- for fid, label in filters %}
+    <button class="pill" type="submit" name="state" value="{{ fid }}" aria-pressed="{{ 'true' if fid == flt else 'false' }}">{{ label }} <span class="num">{{ total if fid == "all" else counts[fid] }}</span></button>
+    {%- endfor %}
+  </form>
+  <form method="get" action="/queue" class="row" role="search">
+    {%- if flt != "all" %}<input type="hidden" name="state" value="{{ flt }}">{% endif %}
+    <label class="sr-only" for="f-q">작품 이름 검색</label>
+    <input class="input" id="f-q" name="q" type="search" value="{{ q }}" maxlength="50" placeholder="작품 이름으로 찾기">
+    <button class="btn btn-secondary" type="submit">검색</button>
+    {%- if q %}<a class="btn btn-ghost" href="/queue{% if flt != 'all' %}?state={{ flt }}{% endif %}">검색 지우기</a>{% endif %}
+  </form>
+  <div id="jobs" data-fragment="{{ fragment }}">
+    {% include "_queue_list.html" %}
+  </div>
+</div>
+<script src="/static/queue.js"></script>
+{% endblock %}

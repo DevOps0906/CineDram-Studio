@@ -33,9 +33,63 @@ def _root(request):
     return Path(getattr(request.app.state, "root", ROOT))
 
 
-def inspect_for(conn, job):
-    """자동 점검 결과(개발 4 전에는 없음 → None = '미실행'). 값이 있으면 {ok, warn, fail, fail_reason}."""
-    return None
+MAX_INSPECT_BYTES = 1_000_000  # 점검결과.json은 신뢰하지 않는 입력(plan-dev4 §6)
+
+
+MAX_REASON = 200
+INSPECT_LABELS = {"loudness": "음량", "true_peak": "트루피크", "silence": "무음", "first_sound": "첫 소리",
+                  "black_frames": "검은 화면"}
+
+
+def _clip(s):
+    return s if len(s) <= MAX_REASON else s[:MAX_REASON] + "…"
+
+
+def _count(v):
+    if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+        raise ValueError("count")
+    return v
+
+
+def inspect_for(conn, root, job):
+    """점검결과.json(plan-dev4 §3) → {ok, warn, fail, fail_reason, auto_fixes}. 없음·깨짐·스키마 불일치·
+    경로 이탈·plan_hash/size 불일치면 None(= '자동 점검 미실행')."""
+    try:
+        if not job["plan_path"]:
+            return None
+        folder = paths.resolve_in(root, job["plan_path"]).parent
+        f = paths.resolve_in(folder, "점검결과.json")
+        if not f.is_file() or f.stat().st_size > MAX_INSPECT_BYTES:
+            return None
+        data = json.loads(f.read_text(encoding="utf-8"))
+        if data["schema"] != 1 or not job["plan_hash"] or data["plan_hash"] != job["plan_hash"]:
+            return None
+        out = data["output"]
+        real = paths.resolve_in(folder, out["file"])
+        if not real.is_file() or _count(out["size"]) != real.stat().st_size:
+            return None
+        row = _latest_output(conn, job)  # 재해시 없이 DB 기록과만 대조
+        sha = out.get("sha256")
+        if row is None or not sha or not isinstance(sha, str) or sha != row["sha256"]:
+            return None
+        s = data["summary"]
+        fr = s.get("fail_reason")
+        if fr is not None and not isinstance(fr, str):
+            return None
+        items = []
+        for it in data.get("items") or []:
+            if not isinstance(it, dict):
+                return None
+            lv = it.get("level")
+            msg = it.get("msg")
+            items.append({"label": INSPECT_LABELS.get(it.get("id"), "기타 점검"),
+                          "level": lv if lv in ("ok", "warn", "fail") else "warn",
+                          "msg": _clip(msg) if isinstance(msg, str) else ""})
+        return {"ok": _count(s["ok"]), "warn": _count(s["warn"]), "fail": _count(s["fail"]),
+                "fail_reason": _clip(fr) if fr is not None else None, "auto_fixes": _count(s.get("auto_fixes", 0)),
+                "items": items}
+    except (paths.PathRejected, KeyError, TypeError, ValueError, OSError, AttributeError):
+        return None
 
 
 def _elapsed(iso):
@@ -117,7 +171,7 @@ def build_card(conn, root, job):
         "comp": " · ".join(rule_set) or None, "elapsed": _elapsed(job["updated_at"]),
         "rights": job["rights"], "rights_ok": job["rights"] in RIGHTS_OK,  # 권리 정본 = DB sources.rights_status
         "held": held, "busy": False, "channel": job["channel_id"], "plan_hash": job["plan_hash"] or "",
-        "output": _output_view(root, job, _latest_output(conn, job)), "inspect": inspect_for(conn, job),
+        "output": _output_view(root, job, _latest_output(conn, job)), "inspect": inspect_for(conn, root, job),
         "log": _approval_log(conn, job["id"]),
     }
     return card

@@ -17,24 +17,33 @@ def _root(request):
     return Path(getattr(request.app.state, "root", ROOT))
 
 
-def _error_page(status, message):
+NEXT_TARGETS = {"queue": "/queue", "status": "/status"}  # R14 뒤 돌아갈 곳(허용 목록만, open redirect 차단)
+
+
+def _next_url(form):
+    return NEXT_TARGETS.get(form.get("next", ""), "/status")
+
+
+def _error_page(status, message, back=None):
     """사람 말 오류 화면. 인라인 스타일·스크립트 없음(CSP), 입력값·경로를 되풀이하지 않는다."""
+    href, name = back or ("/status", "제작 현황")
     body = "<br>".join(str(escape(line)) for line in message.splitlines())
     html = ("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><title>처리하지 못했습니다 — CineDram Studio</title>"
             "<link rel=\"stylesheet\" href=\"/static/_tokens.css\"><link rel=\"stylesheet\" href=\"/static/_app.css\"></head>"
             f"<body><main class=\"main\" id=\"main\"><h1>처리하지 못했습니다</h1><p role=\"alert\">{body}</p>"
-            "<p><a href=\"/status\">제작 현황</a> · <a href=\"/inbox\">승인함</a></p></main></body></html>")
+            f"<p><a href=\"{href}\">{escape(name)}</a> · <a href=\"/inbox\">승인함</a></p></main></body></html>")
     return HTMLResponse(html, status_code=status)
 
 
 async def _run(request, conn, to, fn, *args, with_root=False, with_form=True):
     form = await read_form(request)
+    dest = to(form) if callable(to) else to
     call = [conn] + ([_root(request)] if with_root else []) + list(args) + ([form] if with_form else [])
     try:
         await run_in_threadpool(fn, *call)
     except svc.Decision as d:
         return _error_page(d.status, d.message)
-    return RedirectResponse(to, status_code=303)
+    return RedirectResponse(dest, status_code=303)
 
 
 @router.post("/jobs/{job_id}/approve-plan")
@@ -64,7 +73,7 @@ async def hold(job_id: int, request: Request, conn=Depends(get_db)):
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel(job_id: int, request: Request, conn=Depends(get_db)):
-    return await _run(request, conn, "/status", svc.cancel, job_id)
+    return await _run(request, conn, _next_url, svc.cancel, job_id)
 
 
 @router.post("/jobs/{job_id}/revert-plan")

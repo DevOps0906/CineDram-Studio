@@ -284,11 +284,10 @@ def hold(conn, job_id, form):
 def cancel(conn, job_id, form):
     _need_yes(form, "confirm")
     job = _load(conn, job_id)
-    if job["queue_state"] == "running":
-        raise Decision(409, "실행 중인 작업은 취소할 수 없습니다.")
+    # running 도 허용(R14+): DB 만 canceled/finished 로 바꾸고, 워커가 다음 확인(≤2초)에 엔진 프로세스 트리를 종료한다.
     if job["state"] not in CANCELABLE or not jobs_repo.transition_from(
             conn, job_id, job["state"], "canceled", queue_state="finished",
-            expect_queue_state=("waiting", "held_human", "held_resource", "paused"),
+            expect_queue_state=("waiting", "running", "held_human", "held_resource", "paused"),
             message="취소", hold_reason=None):
         raise Decision(409, "취소할 수 없는 상태입니다.")
 

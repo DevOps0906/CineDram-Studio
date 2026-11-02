@@ -4,6 +4,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +26,8 @@ class RunResult:
     stderr: str
     timed_out: bool = False
     truncated: bool = False
+    stopped: bool = False
+    kill_failed: bool = False
 
     @property
     def output(self):
@@ -56,6 +59,18 @@ def kill_tree(proc):
         pass
 
 
+def _reap(proc):
+    """kill_tree 뒤 종료를 기다린다. 5초 안에 안 죽으면 한 번 더 죽이고, 그래도 살아 있으면 False."""
+    for attempt in range(2):
+        try:
+            proc.wait(timeout=5)
+            return True
+        except subprocess.TimeoutExpired:
+            if attempt == 0:
+                kill_tree(proc)
+    return False
+
+
 def _read(f):
     size = f.seek(0, os.SEEK_END)
     f.seek(0)
@@ -63,11 +78,15 @@ def _read(f):
     return data.decode("utf-8", errors="replace"), size > MAX_OUTPUT_BYTES
 
 
-def run(args, timeout, cwd=None, extra_env=None):
-    """run(args, timeout, cwd=None, extra_env=None) -> RunResult.
+STOP_POLL_SEC = 2
+
+
+def run(args, timeout, cwd=None, extra_env=None, should_stop=None):
+    """run(args, timeout, cwd=None, extra_env=None, should_stop=None) -> RunResult.
 
     args[0] 은 shutil.which 로 절대 경로 해석(못 찾으면 SubprocRejected). cwd 기본값은 작업 루트.
     시간 초과면 returncode=-1, timed_out=True, 부분 출력은 유지한다.
+    should_stop(인자 없는 callable)을 2초마다 호출해 True 면 프로세스 트리를 죽이고 returncode=-2, stopped=True.
     """
     if isinstance(args, (str, bytes)) or not args:
         raise TypeError("args 는 비어 있지 않은 인자 목록이어야 한다(셸 문자열 금지)")
@@ -85,16 +104,33 @@ def run(args, timeout, cwd=None, extra_env=None):
         proc = subprocess.Popen(argv, shell=False, cwd=cwd or WORK_ROOT, env=env,
                                 stdin=subprocess.DEVNULL, stdout=fo, stderr=fe, **kwargs)
         timed_out = False
+        stopped = False
+        kill_failed = False
         try:
-            proc.wait(timeout=timeout)
+            if should_stop is None:
+                proc.wait(timeout=timeout)
+            else:
+                deadline = time.monotonic() + timeout
+                while True:
+                    left = deadline - time.monotonic()
+                    if left <= 0:
+                        raise subprocess.TimeoutExpired(argv, timeout)
+                    try:
+                        proc.wait(timeout=min(STOP_POLL_SEC, left))
+                        break
+                    except subprocess.TimeoutExpired:
+                        if should_stop():
+                            stopped = True
+                            kill_tree(proc)
+                            break
+                if stopped:
+                    kill_failed = not _reap(proc)
         except subprocess.TimeoutExpired:
             timed_out = True
             kill_tree(proc)
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
+            kill_failed = not _reap(proc)
         out, t1 = _read(fo)
         err, t2 = _read(fe)
-    rc = -1 if timed_out else proc.returncode
-    return RunResult(rc, out, err, timed_out=timed_out, truncated=t1 or t2)
+    rc = -2 if stopped else -1 if timed_out else proc.returncode
+    return RunResult(rc, out, err, timed_out=timed_out, truncated=t1 or t2, stopped=stopped,
+                     kill_failed=kill_failed)

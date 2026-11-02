@@ -39,11 +39,12 @@
 {%- endmacro %}
 
 {#- 점검 줄: 값이 없으면 "미실행"(개발 4 전) -#}
-{% macro inspect_line(ok=none, warn=none, fail=none) -%}
+{% macro inspect_line(ok=none, warn=none, fail=none, auto_fixes=none, fail_reason=none) -%}
 {%- if ok is none and warn is none and fail is none -%}
 <div class="inspect muted">자동 점검 미실행</div>
 {%- else -%}
-<div class="inspect"><span class="t-ok">{{ icon("check") }}통과 {{ ok or 0 }}</span><span class="t-warn">{{ icon("warn") }}경고 {{ warn or 0 }}</span><span class="t-fail">{{ icon("x") }}실패 {{ fail or 0 }}</span></div>
+<div class="inspect"><span class="t-ok">{{ icon("check") }}통과 {{ ok or 0 }}</span><span class="t-warn">{{ icon("warn") }}경고 {{ warn or 0 }}</span><span class="t-fail">{{ icon("x") }}실패 {{ fail or 0 }}</span>{% if auto_fixes %}<span class="muted">자동 보정 {{ auto_fixes }}건</span>{% endif %}</div>
+{%- if fail and fail_reason %}<p class="label t-fail" role="status">{{ fail_reason }}</p>{% endif %}
 {%- endif -%}
 {%- endmacro %}
 

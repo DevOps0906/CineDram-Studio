@@ -51,7 +51,7 @@
   <div class="aside-head"><h2 class="section-title">점검 로그</h2><span class="label muted">공통 28항</span></div>
   {%- if selected %}
   {%- set ins = selected.inspect %}
-  {{ inspect_line(ins.ok, ins.warn, ins.fail) if ins else inspect_line() }}
+  {{ inspect_line(ins.ok, ins.warn, ins.fail, ins.auto_fixes, ins.fail_reason) if ins else inspect_line() }}
   <h3 class="label muted">승인 로그</h3>
   <ul class="log num">
     {%- for e in selected.log %}<li><span>{{ e.text }}</span><span>{{ e.at }}</span></li>{% else %}<li class="muted"><span>기록 없음</span></li>{%- endfor %}

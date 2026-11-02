@@ -21,6 +21,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 TAIL = 0.2          # A10-5 나레이션 꼬리
@@ -29,6 +30,15 @@ MIN_SUB, MAX_SUB, MAX_CPS = 0.8, 4.0, 8.0   # C5-10
 DROP_FRAG = 0.3     # C5-11
 LINE_CHARS = 14     # 기준표
 ORIG_GAIN = 0.15    # A10-8
+LOUD_I = -14.0      # A10-12 목표 통합 음량(LUFS)
+LOUD_TP = -1.0      # A10-13 true peak 상한(dBTP)
+LOUD_LRA = 11.0     # 미확인(A10-14) — loudnorm 기본값. 입력 LRA가 크면 dynamic 으로 바뀐다
+LOUD_TOL = 1.0      # 미확인(A10-12) — 잠정 ±1 LU, 벗어나면 warn 만 (D1)
+SYNC_TOL = 0.01     # C5-9 싱크 환산 오차(반올림) — 잠정값
+LEAD = 0.1          # P8-3 첫 음절 앞 여유
+TAILROOM = 0.2      # P8-3 끝 음절 뒤 여유
+NEAR_GAP = 0.3      # P8-3 이웃 줄 간격이 이보다 작으면 중점에서 자른다
+P82_NOTE = "자동 받아쓰기 SRT — 컷 경계 ±0.5초 확인 필요"
 LEN_MIN, LEN_MAX = 20.0, 59.0   # C7-1
 HERE = Path(__file__).resolve().parent
 
@@ -235,7 +245,7 @@ def total_len(resolved):
 
 
 # ---------------------------------------------------------------- 검증
-def check(plan, resolved, subs, issues=None, max_narr_pct=35.0):
+def check(plan, resolved, subs, issues=None, max_narr_pct=35.0, src_lines=None):
     """(level, rule, msg) 목록. error 가 있으면 제작하지 않는다."""
     iss = list(issues or [])
     meta, cuts = plan["meta"], resolved
@@ -294,9 +304,59 @@ def check(plan, resolved, subs, issues=None, max_narr_pct=35.0):
             iss.append(("warn", "C5-10", f"자막 {i}: {n / d:.1f}자/초 > {MAX_CPS}"))
         if any(nospace(x) > LINE_CHARS + 2 for x in wrap(tx)):
             iss.append(("warn", "C5-9", f"자막 {i}: 한 줄 16자 초과 «{tx[:14]}»"))
+    if meta.get("srt_kind") != "manual":
+        iss.append(("warn", "P8-2", P82_NOTE))
+    iss += sync_issues(cuts, subs, src_lines)
+    iss += tail_room_issues(cuts, src_lines)
     t = meta.get("title") or []
     if len(t) != 2 or any(nospace(x) > 12 for x in t) or sum(nospace(x) for x in t) > 24:
         iss.append(("warn", "C4-3", "제목은 두 줄, 줄당 12자·합 24자 이내"))
+    return iss
+
+
+def sync_issues(cuts, subs, src_lines):
+    """C5-9: 자막 시작이 그 컷의 소리 시작보다 앞서면 error. 나레이션=tl_start, 대사=원본 SRT 줄 시작 환산."""
+    iss = []
+    for i, (s, e, tx) in enumerate(subs, 1):
+        cut = max(cuts, key=lambda c: min(e, c["tl_end"]) - max(s, c["tl_start"]))
+        if min(e, cut["tl_end"]) - max(s, cut["tl_start"]) <= 0:
+            continue
+        if cut["kind"] == "narration":
+            starts = [cut["tl_start"]]
+        elif src_lines:
+            a, b, T = cut["src_start"], cut["src_end"], cut["tl_start"]
+            starts = [max(ls, a) - a + T for ls, le, _ in src_lines if le > a and ls < b]
+        else:
+            continue
+        if starts and s < min(starts, key=lambda x: abs(x - s)) - SYNC_TOL:
+            iss.append(("error", "C5-9", f"자막 {i}: 소리보다 먼저 뜬다 (컷 {cut['no']}) «{tx[:12]}»"))
+    return iss
+
+
+def tail_room_issues(cuts, src_lines):
+    """P8-3: 대사 컷은 첫 음절 0.1초 전에 열고 끝 0.2초 후에 닫는다. 이웃 줄 간격 0.3초 미만이면 중점까지 허용. 검사만 한다(D3)."""
+    iss = []
+    if not src_lines:
+        return iss
+    lines = sorted(src_lines, key=lambda x: x[0])
+    for c in cuts:
+        if c["kind"] != "dialog":
+            continue
+        a, b = c["src_start"], c["src_end"]
+        for k, (ls, le, tx) in enumerate(lines):
+            if le <= a or ls >= b:
+                continue
+            if ls >= a:
+                need = ls - LEAD
+                if k > 0 and ls - lines[k - 1][1] < NEAR_GAP:
+                    need = max(need, (ls + lines[k - 1][1]) / 2)
+                if a > need + 1e-3:
+                    iss.append(("error", "P8-3", f"컷 {c['no']}: «{tx[:12]}» 첫 음절 앞 여유가 {ls - a:.2f}초 (0.1초 필요)"))
+            need = le + TAILROOM
+            if k + 1 < len(lines) and lines[k + 1][0] - le < NEAR_GAP:
+                need = min(need, (le + lines[k + 1][0]) / 2)
+            if b < need - 1e-3:
+                iss.append(("error", "P8-3", f"컷 {c['no']}: «{tx[:12]}» 끝 여유가 {b - le:.2f}초 (0.2초 필요)"))
     return iss
 
 
@@ -409,7 +469,7 @@ def do_recalc(plan, write=True):
     if not lines and any(c["kind"] == "dialog" for c in plan["cuts"]):
         iss.append(("error", "P8-1", "원본 SRT 가 없다 — 자막 시각의 근거가 없다"))
     subs = build_subs(plan, resolved, lines)
-    iss = check(plan, resolved, subs, iss, plan["meta"].get("max_narration_pct", 35.0))
+    iss = check(plan, resolved, subs, iss, plan["meta"].get("max_narration_pct", 35.0), lines)
     if write:
         d = plan["_dir"]
         write_srt(d / "자막.srt", subs)
@@ -427,6 +487,8 @@ def do_recalc(plan, write=True):
                         f"{r['tl_start']:.1f}~{r['tl_end']:.1f} | {r['dur']:.1f}{est} | {heard} | "
                         + (f"{r['face']['x']},{r['face']['y']},{r['face'].get('h', '-')}" if r.get("face") else "—") + f" | {memo} |")
         rows.append(f"\n총 길이 **{total_len(resolved):.1f}초**, 컷 {len(resolved)}개, 컷 길이 합 = 총 길이 ✓ (간격 0)")
+        if plan["meta"].get("srt_kind") != "manual":
+            rows = [f"> {P82_NOTE}", ""] + rows
         (d / "편집지시서_표.md").write_text("\n".join(rows) + "\n", encoding="utf-8")
     return resolved, subs, iss
 
@@ -436,6 +498,38 @@ def run(cmd, cwd=None):
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
         raise RuntimeError("ffmpeg 실패:\n" + " ".join(map(str, cmd)) + "\n" + r.stderr[-1800:])
+
+
+def run_capture(cmd, cwd=None):
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode:
+        raise RuntimeError("ffmpeg 실패:\n" + " ".join(map(str, cmd)) + "\n" + r.stderr[-1800:])
+    return r.stderr
+
+
+def parse_loudnorm(stderr):
+    """loudnorm print_format=json 의 마지막 JSON 블록을 읽는다."""
+    blocks = re.findall(r"\{[^{}]*\}", stderr)
+    if not blocks:
+        raise RuntimeError("loudnorm 측정값을 읽지 못했다")
+    out = {}
+    for k, v in json.loads(blocks[-1]).items():
+        try:
+            out[k] = float(v)
+        except (TypeError, ValueError):
+            out[k] = v
+    return out
+
+
+def loudnorm_base():
+    return f"loudnorm=I={LOUD_I:g}:TP={LOUD_TP:g}:LRA={LOUD_LRA:g}"
+
+
+def measure_loudness(work, name):
+    """pass1: 합친 영상의 오디오를 측정한다."""
+    err = run_capture(["ffmpeg", "-hide_banner", "-nostats", "-v", "info", "-i", name, "-map", "0:a",
+                       "-af", loudnorm_base() + ":print_format=json", "-f", "null", "-"], cwd=work)
+    return parse_loudnorm(err)
 
 
 def vf(w, h, fps):
@@ -625,10 +719,37 @@ def cmd_render(plan, out_name, template="topbottom"):
           (f"drawbox=x=0:y={tpl['top']['h'] - tpl['top']['accent_h']}:w={W}:h={tpl['top']['accent_h']}:color={c['accent']}:t=fill" if tpl['top']['accent_h'] else "null") + "[bg];" +
           f"[bg][1:v]overlay={v['x']}:{v['y']}:shortest=1[o];[o]ass=final.ass:fontsdir=fonts[out]")
     out = (plan["_dir"] / out_name).resolve()
-    run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", f"color=c={c['bottom_bg']}:s={W}x{H}:r={tpl['fps']}",
-         "-i", "flat.mkv", "-filter_complex", fc, "-map", "[out]", "-map", "1:a", "-c:v", "libx264", "-crf", "18",
-         "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
-         "-t", f"{total:.3f}", str(out)], cwd=work)
+    # A10-12·14: 최종 연결 영상 1개에 loudnorm 2-pass(선형). 컷 단위 믹스(A10-8)는 건드리지 않는다.
+    before = measure_loudness(work, "flat.mkv")
+    afilter, fixes = [], []
+    keys = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
+    if all(isinstance(before.get(k), float) and abs(before[k]) != float("inf") for k in keys):
+        flt = (f"{loudnorm_base()}:measured_I={before['input_i']}:measured_TP={before['input_tp']}:"
+               f"measured_LRA={before['input_lra']}:measured_thresh={before['input_thresh']}:"
+               f"offset={before['target_offset']}:linear=true")
+        afilter = ["-af", flt + ":print_format=json"]
+    else:
+        print("△ [A10-12] 오디오가 무음이라 음량을 보정하지 못했다")
+    err = run_capture(["ffmpeg", "-y", "-hide_banner", "-nostats", "-v", "info", "-f", "lavfi", "-i", f"color=c={c['bottom_bg']}:s={W}x{H}:r={tpl['fps']}",
+                       "-i", "flat.mkv", "-filter_complex", fc, "-map", "[out]", "-map", "1:a", "-c:v", "libx264", "-crf", "18",
+                       "-preset", "medium", "-pix_fmt", "yuv420p", *afilter, "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+                       "-movflags", "+faststart", "-t", f"{total:.3f}", str(out)], cwd=work)
+    if afilter:
+        after = parse_loudnorm(err)
+        mode = "linear" if str(after.get("normalization_type", "")).lower() == "linear" else "dynamic"
+        off = abs(after["output_i"] - LOUD_I) > LOUD_TOL
+        fixes.append({"item": "loudness", "rule": "A10-12", "filter": flt,
+                      "before": {"i": before["input_i"], "tp": before["input_tp"], "lra": before["input_lra"], "thresh": before["input_thresh"]},
+                      "after": {"i": after["output_i"], "tp": after["output_tp"], "lra": after["output_lra"]},
+                      "offset": before["target_offset"], "mode": mode,
+                      "target": {"i": LOUD_I, "tp": LOUD_TP}, "tolerance_lu": LOUD_TOL, "out_of_tolerance": off,
+                      "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
+        print(f"  음량 {before['input_i']:.1f} → {after['output_i']:.1f} LUFS ({mode}), TP {after['output_tp']:.1f} dBTP")
+        if off:
+            print(f"△ [A10-12] 보정 뒤 음량이 목표 {LOUD_I:g}±{LOUD_TOL:g} LU 밖이다 — 확인")
+        if mode != "linear":
+            print("△ [A10-14] 보정이 선형이 아니라 동적 모드로 바뀌었다 — 전후 값은 작업기록.json")
+    (plan["_dir"] / "작업기록.json").write_text(json.dumps({"schema": 1, "auto_fixes": fixes}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"✓ {out}  ({total:.1f}초, {W}x{H})")
     print("다음: 영상을 직접 확인하고 승인함에서 승인하세요. 업로드는 항상 사람이 합니다.")
     return 0
@@ -894,7 +1015,7 @@ utf8_console()   # main 을 거치지 않고 gate() 등을 import 해 불러도 
 def main(argv=None):
     utf8_console()
     ap =argparse.ArgumentParser(prog="shortsflow", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["check", "tts-plan", "tts-measure", "recalc", "approve", "render", "handoff", "delegate"])
+    ap.add_argument("cmd", choices=["check", "tts-plan", "tts-measure", "recalc", "approve", "render", "handoff", "delegate", "inspect"])
     ap.add_argument("plan", help="컷표.json")
     ap.add_argument("--dir", default="tts", help="tts-measure: 음성 폴더")
     ap.add_argument("--out", default=None, help="render: 출력 mp4 / handoff: 출력 폴더")
@@ -905,6 +1026,9 @@ def main(argv=None):
     if a.cmd == "check":
         _, _, iss = do_recalc(plan, write=False)
         return print_issues(iss)
+    if a.cmd == "inspect":
+        from inspect_av import inspect_output  # 순환 import 회피: inspect_av 가 shortsflow 를 import 한다
+        return inspect_output(plan, plan["_dir"] / (a.out or "숏폼_상하템플릿.mp4"))
     if a.cmd == "tts-plan":
         return cmd_tts_plan(plan)
     if a.cmd == "tts-measure":

@@ -1,4 +1,4 @@
-"""plan-dev3 §2 라우트 표(R1~R15)와 앱 라우트 대조. 미구현 행은 건너뛰고, 표 밖 라우트·CSRF 누락은 실패."""
+"""plan-dev3 §2 라우트 표(R1~R15)·plan-dev5 §1(R16~R20)와 앱 라우트 대조. 미구현 행은 건너뛰고, 표 밖 라우트·CSRF 누락은 실패."""
 import re
 import sys
 import unittest
@@ -20,6 +20,9 @@ CONTRACT = [
     ("R9", "POST", "/jobs/{id}/approve-plan"), ("R10", "POST", "/jobs/{id}/approve-video"),
     ("R11", "POST", "/jobs/{id}/request-change"), ("R12", "POST", "/jobs/{id}/rebuild"),
     ("R13", "POST", "/jobs/{id}/hold"), ("R14", "POST", "/jobs/{id}/cancel"), ("R15", "POST", "/jobs/{id}/revert-plan"),
+    # plan-dev5 §1
+    ("R16", "GET", "/queue"), ("R16", "GET", "/queue/fragment"), ("R17", "POST", "/jobs/{id}/pause"),
+    ("R18", "POST", "/jobs/{id}/resume"), ("R19", "POST", "/jobs/{id}/priority"), ("R20", "POST", "/jobs/{id}/retry"),
 ]
 INFRA = {("GET", "/healthz")}
 

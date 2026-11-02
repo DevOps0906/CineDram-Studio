@@ -622,11 +622,11 @@ class OtherDecisionsTest(Base):
                 self.assertEqual((row["state"], row["queue_state"]), ("canceled", "finished"))
                 self.assertIsNotNone(row["finished_at"])
 
-    def test_cancel_running_or_approved_409(self):
+    def test_cancel_running_allowed_done_409(self):  # R14+: 실행 중 취소 허용(워커가 프로세스 종료)
         jid = self.make_job(state="building", queue_state="running")
         self.conn.execute("UPDATE jobs SET slot_id='gpu' WHERE id=?", (jid,))
-        self.assertEqual(self.post(f"/jobs/{jid}/cancel", {"confirm": "yes"}).status_code, 409)
-        self.assertEqual(self.row(jid)["state"], "building")
+        self.assertEqual(self.post(f"/jobs/{jid}/cancel", {"confirm": "yes"}).status_code, 303)
+        self.assertEqual((self.row(jid)["state"], self.row(jid)["queue_state"]), ("canceled", "finished"))
         j2 = self.make_job(state="done", queue_state="finished")
         self.assertEqual(self.post(f"/jobs/{j2}/cancel", {"confirm": "yes"}).status_code, 409)
 

@@ -74,6 +74,7 @@ def open_db(db_path):
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout = 5000")
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")  # ADR-004: 워커와 동시 접근
     return conn
 
 
@@ -135,7 +136,7 @@ def icon(name, cls=""):
 NAV_GROUPS = (
     ("홈", (("dashboard", None, "home", "홈"),)),
     ("제작", (("oneclick", "/make/oneclick", "zap", "원클릭 제작"), ("make", "/make", "plus", "만들기"),
-            ("link", None, "link", "링크로 만들기"), ("queue", None, "layers", "대기 큐"),
+            ("link", None, "link", "링크로 만들기"), ("queue", "/queue", "layers", "대기 큐"),
             ("status", "/status", "activity", "제작 현황"))),
     ("검수", (("inbox", "/inbox", "inbox", "승인함"),)),
     ("소재", (("radar", None, "radar", "레이더"),)),
