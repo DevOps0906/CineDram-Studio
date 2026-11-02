@@ -37,10 +37,10 @@ class DbTestBase(unittest.TestCase):
 
 class MigrateTest(DbTestBase):
     def test_idempotent(self):
-        self.assertEqual(migrate_mod.migrate(self.db), ["0001", "0002", "0003"])
+        self.assertEqual(migrate_mod.migrate(self.db), ["0001", "0002", "0003", "0004"])
         self.assertEqual(migrate_mod.migrate(self.db), [])
         rows = self.conn().execute("SELECT version, checksum FROM schema_migrations").fetchall()
-        self.assertEqual(len(rows), 3)
+        self.assertEqual(len(rows), 4)
         self.assertEqual(rows[0][0], "0001")
 
     def test_checksum_tamper_aborts(self):

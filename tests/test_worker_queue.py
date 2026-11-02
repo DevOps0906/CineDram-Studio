@@ -314,7 +314,8 @@ class StartupTest(Base):
             pass
 
     def test_old_schema_refused(self):
-        self.conn.execute("DELETE FROM schema_migrations WHERE version='0003'")
+        # 필요 버전 이상을 모두 지워 최신 < 필요 상태를 만든다(뒤에 마이그레이션이 늘어도 의도 유지)
+        self.conn.execute("DELETE FROM schema_migrations WHERE version >= ?", (queue.REQUIRED_SCHEMA,))
         with self.assertRaises(queue.SchemaTooOld):
             queue.check_schema(self.conn)
         lock = self.tmp / "var" / "worker.lock"

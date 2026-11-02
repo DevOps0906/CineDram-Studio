@@ -3,3 +3,5 @@
 fastapi==0.162.0
 uvicorn==0.54.0
 jinja2==3.1.6
+# LLM 호출 (ADR-002 API 직접 호출, core/llm.py). 키는 ANTHROPIC_API_KEY 환경 변수만.
+anthropic==2.4.0
