@@ -1,13 +1,14 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
 - 갱신: 2026-11-02
-- 현재 작업: 개발 0단계(스택 ADR·엔진 테스트·DB 스키마) — 상태: 완료, 다음 2단계 서버·보안 골격 대기
-- 마지막으로 한 일: docs/16 ADR 6건, 엔진 테스트 71개(통과), 승인 게이트 tts_hash 결함 수정, db/ 스키마·migrate.py·ERD, README 갱신
-- 다음 한 걸음: FastAPI 확정 → 서버·보안 골격(개발 2단계) / 실제 소스 1편 검증(개발 1단계, 승인 approve는 사람)
-- 열린 결정(사용자 확인 필요): 남의 콘텐츠 재사용 지원 범위, 폰 원격 접속, 의역 허용 범위, 구글 계정 수 상한, 한국어 서체, 글자 배율 기능, 모바일 더보기 메뉴, 구글 계정 탭 지시문 끊긴 뒷부분(업로드방식), 동시 제작 방식, LLM 호출 주체(헤드리스 vs API 키)
-- 주의: 업로드·approve는 사람만(AGENTS.md). 외부 강의 캡처는 숨김 폴더 .captures/(.gitignore 제외). 승인 해시는 컷표만 묶으므로 채널 변경은 별도 대조 필요(docs/14 §6-1)
-- SDLC 단계: 05 기술 설계 · 06 구현 초기 (전체 완성도 약 42%, README 참조)
-- 담당 모델/역할: planner · designer(Opus), challenger(Opus)
-- 수정 파일: docs/00~15, design/**, modes/topic-modes.md, README.md, AGENTS.md
-- 테스트 상태: 통과 (unittest 71개, skip 6 = docs/13 §10 미구현 검사)
-- 남은 작업: 기술 설계(API·ERD·ADR·스택), 구현 단계 1(상태머신·SQLite·만들기 화면), QA 리뷰(코드·디자인·접근성·보안)
+- 현재 작업: 병렬 개발(개발 0·2·4단계) — 상태: 완료·커밋, 다음 CSRF·POST 라우트 → 만들기·승인함 화면
+- 마지막으로 한 일: FastAPI 빈 서버+보안 미들웨어(dev-0), 보안 순수 함수·큐 워커·0002(dev-2), 자동 검수 4종(dev-4). 모두 challenger/reviewer 반영
+- 다음 한 걸음: CSRF(쿠키 필수·12시간 만료, 함수는 server/security.py에 있음)+첫 POST 라우트 / 실제 소스 1편 검증(개발 1, approve는 사람)
+- 열린 결정(사용자 확인 필요): mute 대사 컷을 C5-9 소리 구간으로 셀지, 자동 받아쓰기 SRT의 C3-3 허용 폭(지금 0.1초, docs/13 §10-2 미확인), 음량·검은 화면 규칙 ID, LLM 방식·슬롯 병렬, 남의 콘텐츠 재사용 범위, 의역 범위, 구글 계정 수 상한, 한국어 서체
+- 주의: 업로드·approve는 사람만. 캡처는 숨김 폴더 .captures/(삭제 예정, tasks/README.md). Codex 한도 2026-11-04까지 → 리뷰는 reviewer
+- 팀장 판단 메모: 워커 로그는 엔진 출력 전체를 로컬 저장(mask_secrets, git 제외) — 원본 본문 제외 여부 재검토. 엔진 ffmpeg 이름 실행(작업 폴더 exe 하이재킹 여지)은 엔진 범위 밖 후속
+- SDLC 단계: 05 기술 설계 · 06 구현 (전체 완성도 약 47%, README 참조)
+- 담당 모델/역할: builder·reviewer·challenger(Opus)
+- 수정 파일: server/**, worker/**, engine/shortsflow.py, db/migrations/0002, tests/**, requirements*, docs/16, AGENTS.md, README.md
+- 테스트 상태: 통과 (.venv unittest 166개, skip 3 = 음량·검은 화면·심볼릭 링크)
+- 남은 작업: 개발 2 마무리(CSRF·POST), 3 화면, 5 큐 고도화, 6 LLM, 7 환경설정, 8 업로드, QA(디자인·접근성)

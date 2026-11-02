@@ -4,7 +4,7 @@
 구조: `README.md` · 정본 `docs/00-통합설계서.md`(§17 파일 지도) · 엔진 `engine/README.md`.
 
 ## 명령 (기준 파일 `컷표.json`)
-`python engine/shortsflow.py {check|tts-plan|tts-measure|recalc|approve|render|handoff|delegate} 컷표.json` — 테스트: `q python -m unittest discover -s tests`(린터 없음). DB: `python db/migrate.py <db경로>`. 긴 출력은 `q <명령>`.
+`python engine/shortsflow.py {check|tts-plan|tts-measure|recalc|approve|render|handoff|delegate} 컷표.json` — 테스트: `q .venv/Scripts/python -m unittest discover -s tests`(린터 없음, 설치 `pip install --require-hashes -r requirements.txt -r requirements-dev.txt`). 서버 `python -m server.run`(127.0.0.1:8765), 워커 `python -m worker --db X --root R`. DB: `python db/migrate.py <db경로>`. 긴 출력은 `q <명령>`.
 
 ## 절대 규칙 (위반 = 리뷰 🔴)
 - 업로드·`approve`는 사람만. 권리(`rights_status`) 미확인 소재는 업로드 차단. 남의 쇼츠는 분석 대상일 뿐 소스 아님.
