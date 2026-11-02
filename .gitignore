@@ -25,3 +25,11 @@ docs/**/*.svg
 # Python 캐시
 __pycache__/
 *.pyc
+
+# 로컬 서버 (task-005)
+.venv/
+var/
+*.db
+*.db-wal
+*.db-shm
+*.bak
