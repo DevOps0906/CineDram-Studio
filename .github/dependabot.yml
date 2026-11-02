@@ -1,0 +1,11 @@
+# Dependabot — `secscan setup` 이 실제 매니페스트를 보고 생성 (없는 생태계는 넣지 않음)
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
