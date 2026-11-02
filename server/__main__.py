@@ -6,10 +6,12 @@ from pathlib import Path
 
 import uvicorn
 
+from core import paths
+
 ROOT = Path(__file__).resolve().parents[1]
 HOST = "127.0.0.1"
 PORT = 8765
-DB_PATH = ROOT / "var" / "studio.db"
+DB_PATH = ROOT / "var" / "studio.db"  # CINEDRAM_DB 미설정 시 기본값
 
 
 _migrate = None
@@ -26,8 +28,9 @@ def _load_migrate():
     return mod
 
 
-def prepare_db(db_path=DB_PATH):
-    """마이그레이션 적용. 체크섬 불일치 등은 MigrationError 로 올려 기동을 거부한다."""
+def prepare_db(db_path=None):
+    """마이그레이션 적용(기본 경로는 CINEDRAM_DB, 없으면 DB_PATH). 불일치 등은 MigrationError 로 기동 거부."""
+    db_path = db_path if db_path is not None else paths.db_path_from_env(DB_PATH)
     mod = _load_migrate()
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     return mod.migrate(db_path)
@@ -45,8 +48,10 @@ def ensure_port_free(host=HOST, port=PORT):
 def main():
     mod = _load_migrate()
     try:
-        prepare_db()
-    except mod.MigrationError as e:
+        db_path = paths.db_path_from_env(DB_PATH)
+        root = paths.default_root()
+        prepare_db(db_path)
+    except (mod.MigrationError, paths.PathRejected) as e:
         print(f"기동 거부: {e}", file=sys.stderr)
         return 1
     try:
@@ -57,7 +62,7 @@ def main():
     from core import logmask
     from server.app import create_app
     logmask.install()
-    uvicorn.run(create_app(), host=HOST, port=PORT)
+    uvicorn.run(create_app(db_path=db_path, root=root), host=HOST, port=PORT)
     return 0
 
 

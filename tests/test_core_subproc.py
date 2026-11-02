@@ -89,6 +89,20 @@ class SubprocTest(unittest.TestCase):
         r = subproc.run([sys.executable, "-c", "import os; print(os.getcwd())"], timeout=20)
         self.assertEqual(Path(r.stdout.strip()).resolve(), subproc.WORK_ROOT.resolve())
 
+    def test_default_cwd_follows_roots_env(self):
+        saved = os.environ.get("CINEDRAM_ROOTS")
+        with tempfile.TemporaryDirectory(prefix="루트 ") as d:
+            os.environ["CINEDRAM_ROOTS"] = d
+            try:
+                r = subproc.run([sys.executable, "-c", "import os; print(os.getcwd())"], timeout=20)
+            finally:
+                if saved is None:
+                    os.environ.pop("CINEDRAM_ROOTS", None)
+                else:
+                    os.environ["CINEDRAM_ROOTS"] = saved
+            self.assertEqual(os.path.normcase(os.path.realpath(r.stdout.strip())),
+                             os.path.normcase(os.path.realpath(d)))
+
     def test_env_protected_and_allowed(self):
         for k in ("PATH", "path", "SYSTEMROOT"):
             with self.assertRaises(subproc.SubprocRejected):

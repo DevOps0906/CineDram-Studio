@@ -36,7 +36,7 @@ class MakeBase(unittest.TestCase):
         conn.close()
         app = create_app(db_path=self.db)
         app.state.root = self.tmp
-        self.client = TestClient(app, base_url=BASE)
+        self.client = TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
 
     def token(self, path="/make"):
         r = self.client.get(path)

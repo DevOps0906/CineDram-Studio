@@ -2,7 +2,6 @@
 import json
 import re
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -13,7 +12,6 @@ from server.deps import get_db, templates
 
 router = APIRouter()
 
-ROOT = Path(__file__).resolve().parents[2]
 # 화면에 올리는 상태. done·failed·canceled 는 제작 현황 밖.
 ACTIVE_STATES = ("queued", "matching", "need_source", "topic", "building", "blocked_disk", "review",
                  "approved", "scheduled", "uploading", "blocked_auth")
@@ -162,7 +160,7 @@ def recent_failures(conn, limit=10):
 
 
 def _context(request, conn, open_id=None):
-    root = getattr(request.app.state, "root", ROOT)
+    root = getattr(request.app.state, "root", None) or paths.default_root()
     cards = build_cards(conn, root, open_id=open_id)
     waiting = [c for c in cards if c["state"] in WAIT_STATES]
     running = [c for c in cards if c["state"] not in WAIT_STATES]

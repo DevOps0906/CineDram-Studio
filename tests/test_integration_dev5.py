@@ -73,7 +73,7 @@ class WorkerCancelIntegrationTest(unittest.TestCase):
         self.conn.commit()
         app = create_app(db_path=self.db)
         app.state.root = self.tmp
-        self.client = TestClient(app, base_url=BASE)
+        self.client = TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
         self.addCleanup(self.client.close)
         self.worker = None
         self.addCleanup(self.stop_everything)  # 가장 먼저 실행(LIFO): 워커 종료 후 임시 폴더 삭제

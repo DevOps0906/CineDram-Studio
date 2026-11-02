@@ -6,15 +6,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from markupsafe import escape
 from starlette.concurrency import run_in_threadpool
 
+from core import paths
 from server import approval_service as svc
 from server.deps import get_db, read_form
 
 router = APIRouter()
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def _root(request):
-    return Path(getattr(request.app.state, "root", ROOT))
+    return Path(getattr(request.app.state, "root", None) or paths.default_root())
 
 
 NEXT_TARGETS = {"queue": "/queue", "status": "/status"}  # R14 뒤 돌아갈 곳(허용 목록만, open redirect 차단)

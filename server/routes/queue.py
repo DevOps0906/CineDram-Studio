@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
+from core import paths
 from core.approval import ApprovalError, check_source_binding
 from core.logmask import mask
 from server import approval_service as svc
@@ -19,7 +20,6 @@ from server.routes.decisions import _error_page as _page
 from server.routes.status import STATE_VIEW, _parse_dt, fmt_elapsed
 
 router = APIRouter()
-ROOT = Path(__file__).resolve().parents[2]
 
 PAGE_SIZE = 20
 GPU_SLOTS = 1  # worker.GPU_SLOT 하나. LLM 단계는 아직 없다(Q3).
@@ -238,7 +238,7 @@ def _error_page(status, message):
 async def _run(request, conn, fn, job_id, with_root=False):
     form = await read_form(request)
     try:
-        args = (conn, Path(getattr(request.app.state, "root", ROOT))) if with_root else (conn,)
+        args = (conn, Path(getattr(request.app.state, "root", None) or paths.default_root())) if with_root else (conn,)
         await run_in_threadpool(fn, *args, job_id, form)
     except svc.Decision as d:
         return _error_page(d.status, d.message)

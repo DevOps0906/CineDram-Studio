@@ -13,7 +13,6 @@ from server.deps import get_db, read_form, templates
 
 router = APIRouter()
 
-ROOT = Path(__file__).resolve().parents[2]
 # 허용 목록: 규칙 파일이 있는 방식만(구성 추가 = rules/ 파일 추가). (값=rules/<값>.md, 라벨, 선택 가능)
 RULE_SETS = (
     ("drama", "한드짜", True), ("drama-first-person", "1인칭 한드짜", True),
@@ -34,7 +33,7 @@ MAX_PLAN_PATH = 260
 
 
 def _root(request):
-    return Path(getattr(request.app.state, "root", ROOT))
+    return Path(getattr(request.app.state, "root", None) or paths.default_root())
 
 
 def _sources(conn, root):

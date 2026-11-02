@@ -62,7 +62,7 @@ def make_client(db_path="nonexistent.db", pages=None):
         return {"n": conn.execute("SELECT 1").fetchone()[0]}
 
     app.include_router(router)
-    return TestClient(app, base_url=BASE), orig
+    return TestClient(app, base_url=BASE, client=("127.0.0.1", 50000)), orig
 
 
 class ShellTest(unittest.TestCase):
@@ -152,7 +152,7 @@ class ShellTest(unittest.TestCase):
 
 class StaticTest(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app(), base_url=BASE)
+        self.client = TestClient(create_app(), base_url=BASE, client=("127.0.0.1", 50000))
 
     def test_serves_assets(self):
         for f in ("_app.css", "_tokens.css", "app.js"):
@@ -261,6 +261,24 @@ class RepoTest(unittest.TestCase):
         self.assertEqual(jobs_repo.get_job(c, jid)["queue_state"], "held_human")
         with self.assertRaises(ValueError):
             jobs_repo.transition_from(c, jid, "topic", "building", slot_id="approve")
+
+
+class DbPathEnvTest(unittest.TestCase):
+    def test_env_overrides_default_and_blank_is_unset(self):
+        import os
+        from core import paths
+        saved = os.environ.pop(paths.DB_ENV, None)
+        try:
+            self.assertEqual(paths.db_path_from_env(), paths.DEFAULT_DB_PATH)
+            self.assertEqual(paths.db_path_from_env("var/studio.db"), Path("var/studio.db"))
+            os.environ[paths.DB_ENV] = "  "
+            self.assertEqual(paths.db_path_from_env("var/studio.db"), Path("var/studio.db"))
+            os.environ[paths.DB_ENV] = "D:/data/cine.db"
+            self.assertEqual(paths.db_path_from_env("var/studio.db"), Path("D:/data/cine.db"))
+        finally:
+            os.environ.pop(paths.DB_ENV, None)
+            if saved is not None:
+                os.environ[paths.DB_ENV] = saved
 
 
 if __name__ == "__main__":

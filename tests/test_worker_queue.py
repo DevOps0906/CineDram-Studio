@@ -1,6 +1,7 @@
 """worker/ 테스트: 0002 마이그레이션, 집기, 슬롯, 해시 재검사, 종료 코드 대응, 단일 인스턴스, 스키마 검사."""
 import importlib.util
 import json
+import os
 import shutil
 import sqlite3
 import sys
@@ -330,6 +331,49 @@ class StartupTest(Base):
             self.assertEqual(wmain.main(["--once"], self.db, self.tmp / "var" / "w.lock", self.tmp), 0)
         self.assertEqual(self.job(j)[:2], ("review", "held_human"))
         self.assertTrue(any("복구" in (e[2] or "") for e in self.events(j)))
+
+
+class EnvDefaultsTest(Base):
+    """CINEDRAM_DB·CINEDRAM_ROOTS: 미설정이면 기존 기본값, 설정이면 그 값을 쓴다."""
+
+    def setUp(self):
+        super().setUp()
+        self.saved = {k: os.environ.pop(k, None) for k in (paths.DB_ENV, paths.ROOTS_ENV)}
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            os.environ.pop(k, None)
+            if v is not None:
+                os.environ[k] = v
+        super().tearDown()
+
+    def test_env_db_missing_refused(self):
+        self.assertEqual(wmain.DB_PATH, paths.DEFAULT_DB_PATH)
+        os.environ[paths.DB_ENV] = str(self.tmp / "없음.db")
+        self.assertEqual(wmain.main(["--once"], lock_path=self.tmp / "var" / "w.lock", root=self.tmp), 1)
+
+    def test_main_uses_env_db_and_root(self):
+        os.environ[paths.DB_ENV] = str(self.db)
+        os.environ[paths.ROOTS_ENV] = str(self.tmp)
+        j = self.add_job()
+        seen = []
+
+        def fake_run(conn, job_id, root, timeout):
+            seen.append(Path(root))
+            queue.transition(conn, job_id, "review", "held_human", message="처리")
+
+        with mock.patch.object(runner, "run_job", fake_run):
+            self.assertEqual(wmain.main(["--once"], lock_path=self.tmp / "var" / "w.lock"), 0)
+        self.assertEqual(seen, [paths.default_root()])
+        self.assertEqual(self.job(j)[:2], ("review", "held_human"))
+
+    def test_main_refuses_relative_db(self):
+        os.environ[paths.DB_ENV] = "상대/cine.db"
+        self.assertEqual(wmain.main(["--once"], lock_path=self.tmp / "var" / "w.lock", root=self.tmp), 1)
+
+    def test_main_refuses_relative_roots(self):
+        os.environ[paths.ROOTS_ENV] = "상대/경로"
+        self.assertEqual(wmain.main(["--once"], self.db, self.tmp / "var" / "w.lock"), 1)
 
 
 if __name__ == "__main__":

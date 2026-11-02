@@ -199,7 +199,7 @@ class MigrationTest(Base):
 class CspTest(unittest.TestCase):
     def test_csp_on_all_responses(self):
         csp = "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'"
-        c = TestClient(create_app(), base_url="http://127.0.0.1:8765")
+        c = TestClient(create_app(), base_url="http://127.0.0.1:8765", client=("127.0.0.1", 50000))
         for r in (c.get("/healthz"), c.get("/nope"), c.get("/healthz", headers={"host": "evil.com"}),
                   c.post("/healthz")):
             self.assertEqual(r.headers["content-security-policy"], csp)

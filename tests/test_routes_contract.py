@@ -49,7 +49,7 @@ class RoutesContractTest(unittest.TestCase):
         self.assertTrue(True, f"미구현: {missing}")
 
     def test_post_requires_csrf_and_origin(self):
-        client = TestClient(self.app, base_url=BASE)
+        client = TestClient(self.app, base_url=BASE, client=("127.0.0.1", 50000))
         impl = [p for _, m, p in CONTRACT if m == "POST" and (m, p) in self.routes]
         if not impl:
             self.skipTest("구현된 POST 계약 라우트 없음")

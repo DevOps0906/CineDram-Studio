@@ -69,7 +69,7 @@ class InboxBase(unittest.TestCase):
     def client(self):
         app = create_app(db_path=self.tmp / "var" / "studio.db")
         app.state.root = self.tmp
-        return TestClient(app, base_url=BASE)
+        return TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
 
     def page(self, url="/inbox"):
         r = self.client().get(url)

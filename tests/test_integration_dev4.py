@@ -48,7 +48,7 @@ class InspectFlowTest(unittest.TestCase):
         self.plan = self.dir / "컷표.json"
         app = create_app(port=PORT, db_path=self.db)
         app.state.root = self.tmp
-        self.c = TestClient(app, base_url=BASE)
+        self.c = TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
         self.addCleanup(self.c.close)
 
     def approve_and_enqueue(self):

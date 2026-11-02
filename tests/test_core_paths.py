@@ -93,5 +93,84 @@ class PathsTest(unittest.TestCase):
             os.rmdir(link)
 
 
+class WorkRootsEnvTest(unittest.TestCase):
+    """CINEDRAM_ROOTS: 미설정이면 저장소 폴더·base 제한 없음, 설정이면 그 루트들 안에서만 허용."""
+
+    def setUp(self):
+        self.a = tempfile.TemporaryDirectory(prefix="루트A_")
+        self.b = tempfile.TemporaryDirectory(prefix="루트B_")
+        self.out = tempfile.TemporaryDirectory(prefix="밖_")
+        self.saved = os.environ.pop(paths.ROOTS_ENV, None)
+
+    def tearDown(self):
+        os.environ.pop(paths.ROOTS_ENV, None)
+        if self.saved is not None:
+            os.environ[paths.ROOTS_ENV] = self.saved
+        for d in (self.a, self.b, self.out):
+            d.cleanup()
+
+    def _set(self, *vals):
+        os.environ[paths.ROOTS_ENV] = os.pathsep.join(vals)
+
+    def _real(self, d):
+        return Path(os.path.realpath(d.name))
+
+    def test_unset_keeps_default(self):
+        self.assertEqual(paths.configured_roots(), [])
+        self.assertEqual(paths.default_root(), paths.DEFAULT_ROOT)
+        paths.resolve_in(self.out.name, "x.txt")  # base 제한 없음(하위 호환)
+
+    def test_blank_value_is_unset(self):
+        self._set("", "  ")
+        self.assertEqual(paths.work_roots(), [paths.DEFAULT_ROOT])
+
+    def test_set_roots_and_default(self):
+        self._set(self.a.name, self.b.name)
+        self.assertEqual(paths.work_roots(), [self._real(self.a), self._real(self.b)])
+        self.assertEqual(paths.default_root(), self._real(self.a))
+        self.assertEqual(paths.resolve_in(self.b.name, "s/x.txt"), self._real(self.b) / "s" / "x.txt")
+        os.makedirs(Path(self.a.name) / "작업")
+        paths.resolve_in(Path(self.a.name) / "작업", "x.txt")  # 루트 아래 하위 폴더 base 허용
+
+    def test_set_rejects_base_outside_roots(self):
+        self._set(self.a.name)
+        for base in (self.out.name, paths.DEFAULT_ROOT, Path(self.a.name).parent):
+            with self.subTest(base=base), self.assertRaises(paths.PathRejected):
+                paths.resolve_in(base, "x.txt")
+        os.makedirs(Path(self.out.name) / "원본")
+        with self.assertRaises(paths.PathRejected):
+            paths.resolve_source(self.out.name, "a.mp4")
+
+    def test_set_rejects_prefix_sibling(self):
+        sib = self.a.name + "x"
+        os.makedirs(sib)
+        try:
+            self._set(self.a.name)
+            with self.assertRaises(paths.PathRejected):
+                paths.resolve_in(sib, "x.txt")
+        finally:
+            os.rmdir(sib)
+
+    def test_relative_db_rejected(self):
+        saved = os.environ.pop(paths.DB_ENV, None)
+        try:
+            os.environ[paths.DB_ENV] = "var/cine.db"
+            with self.assertRaises(paths.PathRejected):
+                paths.db_path_from_env()
+            os.environ[paths.DB_ENV] = str(Path(self.a.name) / "cine.db")
+            self.assertEqual(paths.db_path_from_env(), Path(self.a.name) / "cine.db")
+        finally:
+            os.environ.pop(paths.DB_ENV, None)
+            if saved is not None:
+                os.environ[paths.DB_ENV] = saved
+
+    def test_relative_root_rejected(self):
+        self._set("상대/경로")
+        with self.assertRaises(paths.PathRejected):
+            paths.work_roots()
+        with self.assertRaises(paths.PathRejected):
+            paths.resolve_in(self.a.name, "x.txt")
+
+
 if __name__ == "__main__":
     unittest.main()

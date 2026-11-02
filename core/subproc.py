@@ -6,9 +6,9 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from core import paths
 
-WORK_ROOT = Path(__file__).resolve().parents[1]
+WORK_ROOT = paths.DEFAULT_ROOT  # 저장소 폴더(엔진 위치). 기본 cwd 는 paths.default_root()
 MAX_OUTPUT_BYTES = 1_000_000  # 스트림(stdout·stderr)별 상한
 ENV_ALLOW = ("SYSTEMROOT", "PATH", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
              "PATHEXT", "COMSPEC")
@@ -84,7 +84,7 @@ STOP_POLL_SEC = 2
 def run(args, timeout, cwd=None, extra_env=None, should_stop=None):
     """run(args, timeout, cwd=None, extra_env=None, should_stop=None) -> RunResult.
 
-    args[0] 은 shutil.which 로 절대 경로 해석(못 찾으면 SubprocRejected). cwd 기본값은 작업 루트.
+    args[0] 은 shutil.which 로 절대 경로 해석(못 찾으면 SubprocRejected). cwd 기본값은 작업 루트(paths.default_root(), CINEDRAM_ROOTS 첫 값).
     시간 초과면 returncode=-1, timed_out=True, 부분 출력은 유지한다.
     should_stop(인자 없는 callable)을 2초마다 호출해 True 면 프로세스 트리를 죽이고 returncode=-2, stopped=True.
     """
@@ -101,7 +101,7 @@ def run(args, timeout, cwd=None, extra_env=None, should_stop=None):
     else:
         kwargs["start_new_session"] = True
     with tempfile.TemporaryFile() as fo, tempfile.TemporaryFile() as fe:
-        proc = subprocess.Popen(argv, shell=False, cwd=cwd or WORK_ROOT, env=env,
+        proc = subprocess.Popen(argv, shell=False, cwd=cwd or paths.default_root(), env=env,
                                 stdin=subprocess.DEVNULL, stdout=fo, stderr=fe, **kwargs)
         timed_out = False
         stopped = False

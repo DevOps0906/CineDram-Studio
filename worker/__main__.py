@@ -5,11 +5,13 @@ import sys
 import time
 from pathlib import Path
 
+from core import paths
+
 from . import queue, runner
 from .lock import AlreadyRunning, SingleInstance
 
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "var" / "studio.db"
+DB_PATH = paths.DEFAULT_DB_PATH  # CINEDRAM_DB 미설정 시 기본값
 LOCK_PATH = ROOT / "var" / "worker.lock"
 POLL_SEC = 2.0
 
@@ -21,8 +23,9 @@ def _connect(db_path):
     return mod.connect(db_path)
 
 
-def run_once(conn, root=ROOT, timeout=runner.ENGINE_TIMEOUT):
-    """대기 작업 1건 처리. 처리했으면 job id, 없으면 None."""
+def run_once(conn, root=None, timeout=runner.ENGINE_TIMEOUT):
+    """대기 작업 1건 처리. 처리했으면 job id, 없으면 None. root 기본값은 paths.default_root()."""
+    root = root if root is not None else paths.default_root()
     job_id = queue.claim_next(conn)
     if job_id is None:
         return None
@@ -30,10 +33,16 @@ def run_once(conn, root=ROOT, timeout=runner.ENGINE_TIMEOUT):
     return job_id
 
 
-def main(argv=None, db_path=DB_PATH, lock_path=LOCK_PATH, root=ROOT):
+def main(argv=None, db_path=None, lock_path=LOCK_PATH, root=None):
     ap = argparse.ArgumentParser(prog="worker")
     ap.add_argument("--once", action="store_true", help="대기 작업을 모두 처리하고 종료")
     a = ap.parse_args(argv)
+    try:
+        db_path = db_path if db_path is not None else paths.db_path_from_env(DB_PATH)
+        root = root if root is not None else paths.default_root()
+    except paths.PathRejected as e:
+        print(f"기동 거부: {e}", file=sys.stderr)
+        return 1
     if not Path(db_path).exists():
         print("기동 거부: DB가 없다 - 서버를 먼저 기동해 마이그레이션하세요", file=sys.stderr)
         return 1

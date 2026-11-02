@@ -56,7 +56,7 @@ class FlowBase(unittest.TestCase):
         self.conn.execute("INSERT INTO works(title) VALUES ('작품')")
         app = create_app(port=PORT, db_path=self.db)
         app.state.root = self.tmp
-        self.c = TestClient(app, base_url=BASE)
+        self.c = TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
         self.fake = self.tmp / "fake_engine.py"
         self.fake.write_text(FAKE_RENDER, encoding="utf-8")
 

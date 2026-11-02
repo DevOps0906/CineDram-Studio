@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from fastapi import Request  # noqa: E402
+from fastapi.responses import HTMLResponse, Response, StreamingResponse  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from core import logmask, paths, subproc  # noqa: E402
@@ -19,6 +20,7 @@ from server import security  # noqa: E402
 from server.security import CSRF_COOKIE, DEFAULT_PORT  # noqa: E402
 
 BASE = "http://127.0.0.1:8765"
+FAKE_KEY = "sk-ant-api03-" + "A" * 40
 ORIGIN = {"origin": BASE}
 
 
@@ -55,9 +57,36 @@ def make():
     return app
 
 
+def make_leaky():
+    """응답 키 검사용 라우트를 더한 앱(NoSecretEchoTest 의 전 경로 순회와 분리)."""
+    app = make()
+
+    @app.get("/leak")
+    def leak():
+        return {"v": FAKE_KEY}
+
+    @app.get("/leak-chunked")
+    def leak_chunked():
+        return StreamingResponse(iter([b"ok ", FAKE_KEY[:10].encode(), FAKE_KEY[10:].encode()]),
+                                 media_type="text/plain")
+
+    @app.get("/leak-binary")
+    def leak_binary():
+        return Response(FAKE_KEY.encode(), media_type="application/octet-stream")
+
+    @app.get("/benign")
+    def benign():
+        return HTMLResponse('<input type="hidden" name="csrf_token" value="' + "a" * 40 + '">'
+                            '<p>task-0123456789abcdefghijklmnop risk-0123456789abcdefghijk</p>'
+                            '<script>fetch("/x",{headers:{"X-CSRF-Token":"' + "b" * 40 + '"}})</script>'
+                            '<p>token 만료, password 입력, secret 없음</p>')
+
+    return app
+
+
 class Base(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(make(), base_url=BASE)
+        self.client = TestClient(make(), base_url=BASE, client=("127.0.0.1", 50000))
 
     def token(self):
         self.client.get("/healthz")
@@ -147,11 +176,11 @@ class CsrfTest(Base):  # 4
 
     def test_no_cookie(self):
         t = self.token()
-        fresh = TestClient(make(), base_url=BASE)  # 쿠키 없는 클라이언트
+        fresh = TestClient(make(), base_url=BASE, client=("127.0.0.1", 50000))  # 쿠키 없는 클라이언트
         self.assertEqual(fresh.post("/act", headers={**ORIGIN, "x-csrf-token": t}).status_code, 403)
 
     def test_mismatch_and_forged(self):
-        other = TestClient(make(), base_url=BASE)
+        other = TestClient(make(), base_url=BASE, client=("127.0.0.1", 50000))
         other.get("/healthz")
         t_other = other.cookies.get(CSRF_COOKIE)
         t = self.token()
@@ -277,6 +306,74 @@ class NoSecretEchoTest(Base):  # 5
         r = self.client.get("/healthz", headers={"host": "sk-abcdefgh12345678.evil"})
         self.assertNotIn("sk-abcdefgh12345678", r.text)
         self.assertNotIn("sk-abcdefgh12345678", str(r.headers))
+
+
+class ClientLoopbackTest(unittest.TestCase):  # 1 보강: scope client 가 루프백이 아니면 허용 Host·Origin 이어도 거부
+    def test_non_loopback_rejected(self):
+        for client in (("192.168.0.10", 5000), ("10.0.0.1", 1), ("evil.com", 1), ("0.0.0.0", 1),
+                       ("testclient", 50000)):  # TestClient 기본값도 운영 코드에서 예외 없음
+            with self.subTest(client=client):
+                c = TestClient(make(), base_url=BASE, client=client)
+                self.assertEqual(c.get("/healthz", headers=ORIGIN).status_code, 403)
+                self.assertEqual(c.post("/act", headers=ORIGIN).status_code, 403)
+
+    def test_loopback_allowed(self):
+        for client in (("127.0.0.1", 5000), ("::1", 5000)):
+            with self.subTest(client=client):
+                c = TestClient(make(), base_url=BASE, client=client)
+                self.assertEqual(c.get("/healthz").status_code, 200)
+
+    def test_missing_client_rejected(self):
+        self.assertFalse(security.is_loopback_client(None))
+
+
+class ResponseKeyTest(Base):  # 5 보강: 응답 본문 키 검사
+    def setUp(self):
+        self.client = TestClient(make_leaky(), base_url=BASE, client=("127.0.0.1", 50000))
+
+    def test_json_with_key_blocked(self):
+        r = self.client.get("/leak", headers=ORIGIN)
+        self.assertEqual(r.status_code, 403)
+        self.assertNotIn(FAKE_KEY, r.text)
+
+    def test_chunked_split_key_blocked(self):
+        r = self.client.get("/leak-chunked")
+        self.assertEqual(r.status_code, 403)
+        self.assertNotIn(FAKE_KEY[10:], r.text)
+
+    def test_binary_not_checked(self):
+        r = self.client.get("/leak-binary")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers["x-frame-options"], "DENY")
+
+    def test_patterns_detect_known_keys(self):
+        for k in ("sk-proj-" + "b" * 40, "AIza" + "C" * 35, "ya29." + "d" * 40, "ghp_" + "E" * 36,
+                  "GOCSPX-" + "f" * 28, "1//" + "g" * 40, "Bearer " + "h" * 20, "api_key=" + "i" * 20):
+            with self.subTest(k=k), self.assertRaises(security.SecretInResponse):
+                security.check_response_body(f"x {k} y".encode())
+
+    def test_no_false_positive(self):  # 음성: CSRF 토큰·단어 중간 sk-·일반 낱말
+        r = self.client.get("/benign")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("csrf_token", r.text)
+        self.assertEqual(self.client.get("/healthz").status_code, 200)
+
+
+class CookieConflictTest(Base):  # 4 보강: 같은 이름 CSRF 쿠키 중복
+    def test_duplicate_cookie_rejected_with_guidance(self):
+        t = self.token()
+        h = {**ORIGIN, "x-csrf-token": t, "cookie": f"{CSRF_COOKIE}={t}; {CSRF_COOKIE}=other"}
+        self.client.cookies.clear()
+        for r in (self.client.get("/healthz", headers=h), self.client.post("/act", headers=h)):
+            self.assertEqual(r.status_code, 403)
+            self.assertIn("쿠키를 삭제", r.text)
+            self.assertNotIn("set-cookie", r.headers)
+
+    def test_single_cookie_with_other_names_ok(self):  # 음성: 다른 이름 쿠키는 무관
+        t = self.token()
+        self.client.cookies.clear()
+        h = {**ORIGIN, "x-csrf-token": t, "cookie": f"other=1; {CSRF_COOKIE}={t}; csrf_x=2"}
+        self.assertEqual(self.client.post("/act", headers=h).status_code, 200)
 
 
 class LogMaskTest(unittest.TestCase):  # 6

@@ -88,7 +88,7 @@ class Base(unittest.TestCase):
     def client(self):
         app = create_app(db_path=self.db)
         app.state.root = self.tmp
-        return TestClient(app, base_url=BASE)
+        return TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
 
     def post(self, path, data=None, csrf=True, origin=True, client=None):
         c = client or self.client()

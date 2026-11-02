@@ -20,7 +20,7 @@ from server.app import create_app  # noqa: E402
 
 class AppTest(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app(), base_url="http://127.0.0.1:8765")
+        self.client = TestClient(create_app(), base_url="http://127.0.0.1:8765", client=("127.0.0.1", 50000))
 
     def test_healthz(self):
         r = self.client.get("/healthz")
@@ -49,6 +49,55 @@ class AppTest(unittest.TestCase):
         c.close()
         with self.assertRaises(entry._load_migrate().MigrationError):
             entry.prepare_db(db)
+
+
+class EnvConfigTest(unittest.TestCase):
+    """CINEDRAM_DB·CINEDRAM_ROOTS 설정 시 서버가 그 DB(마이그레이션 적용)·루트를 쓴다."""
+
+    def setUp(self):
+        from core import paths
+        self.paths = paths
+        self.saved = {k: os.environ.pop(k, None) for k in (paths.DB_ENV, paths.ROOTS_ENV)}
+        self.tmp = tempfile.TemporaryDirectory(prefix="서버 환경_")
+        self.dir = Path(self.tmp.name)
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            os.environ.pop(k, None)
+            if v is not None:
+                os.environ[k] = v
+        self.tmp.cleanup()
+
+    def test_unset_keeps_defaults(self):
+        app = create_app()
+        self.assertEqual(app.state.db_path, self.paths.DEFAULT_DB_PATH)
+        self.assertEqual(app.state.root, self.paths.DEFAULT_ROOT)
+
+    def test_env_db_migrated_and_root_used(self):
+        from server import deps
+        db = self.dir / "데이터" / "cine.db"
+        os.environ[self.paths.DB_ENV] = str(db)
+        os.environ[self.paths.ROOTS_ENV] = str(self.dir)
+        self.assertTrue(entry.prepare_db())  # 인자 없이 env 경로에 마이그레이션
+        app = create_app()
+        self.assertEqual(app.state.db_path, db)
+        self.assertEqual(app.state.root, self.paths.default_root())
+        conn = deps.open_db(app.state.db_path)
+        try:
+            self.assertTrue(conn.execute("SELECT count(*) FROM schema_migrations").fetchone()[0])
+        finally:
+            conn.close()
+
+    def test_main_refuses_relative_db(self):
+        os.environ[self.paths.DB_ENV] = "상대/cine.db"
+        self.assertEqual(entry.main(), 1)
+        self.assertFalse((ROOT / "상대").exists())
+
+    def test_main_refuses_relative_roots(self):
+        os.environ[self.paths.DB_ENV] = str(self.dir / "cine.db")
+        os.environ[self.paths.ROOTS_ENV] = "상대/경로"
+        self.assertEqual(entry.main(), 1)
+        self.assertFalse((self.dir / "cine.db").exists())
 
 
 class PortGuardTest(unittest.TestCase):

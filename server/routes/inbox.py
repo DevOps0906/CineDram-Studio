@@ -16,7 +16,6 @@ from server.approval_service import CHANGE_TARGETS  # K2: 칩 상수 정본
 
 router = APIRouter()
 
-ROOT = Path(__file__).resolve().parents[2]
 HOLD_REASON = "보관(권리 미확인)"
 RIGHTS_OK = ("own", "licensed")
 MAX_LISTED_FILES = 30
@@ -30,7 +29,7 @@ _SELECT = (
 
 
 def _root(request):
-    return Path(getattr(request.app.state, "root", ROOT))
+    return Path(getattr(request.app.state, "root", None) or paths.default_root())
 
 
 MAX_INSPECT_BYTES = 1_000_000  # 점검결과.json은 신뢰하지 않는 입력(plan-dev4 §6)

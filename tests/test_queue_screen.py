@@ -38,7 +38,7 @@ class QueueTest(unittest.TestCase):
         app = create_app(db_path=self.db)
         app.state.root = self.dir
         self.app = app
-        self.client = TestClient(app, base_url=BASE)
+        self.client = TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
         self.addCleanup(self.client.close)
         self.addCleanup(self.tmp.cleanup)
         self.addCleanup(self.conn.close)
@@ -58,7 +58,7 @@ class QueueTest(unittest.TestCase):
         return self.conn.execute("SELECT COUNT(*) FROM job_events WHERE job_id=?", (jid,)).fetchone()[0]
 
     def post(self, path, data=None, csrf=True, origin=True, client=None):
-        c = client or TestClient(self.app, base_url=BASE)
+        c = client or TestClient(self.app, base_url=BASE, client=("127.0.0.1", 50000))
         c.get("/queue")
         d = dict(data or {})
         if csrf:
@@ -224,7 +224,7 @@ class QueueTest(unittest.TestCase):
     def test_priority_concurrent_exact(self):
         for direction, delta in (("up", 2), ("down", -2)):
             j = self.job(qs="waiting", priority=10)
-            clients = [TestClient(self.app, base_url=BASE) for _ in range(2)]
+            clients = [TestClient(self.app, base_url=BASE, client=("127.0.0.1", 50000)) for _ in range(2)]
             for c in clients:
                 c.get("/queue")
             out = []

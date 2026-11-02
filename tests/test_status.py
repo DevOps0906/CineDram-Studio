@@ -42,7 +42,7 @@ class StatusTest(unittest.TestCase):
         self.conn.commit()
         app = create_app(db_path=self.db)
         app.state.root = self.dir
-        self.client = TestClient(app, base_url=BASE)
+        self.client = TestClient(app, base_url=BASE, client=("127.0.0.1", 50000))
 
     def tearDown(self):
         self.client.close()
