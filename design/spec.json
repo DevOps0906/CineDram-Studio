@@ -1,0 +1,1184 @@
+{
+ "version": "1",
+ "generated": "2026-11-02T02:29:09+00:00",
+ "docs": "docs",
+ "tokens": "기본 시작 토큰(프로젝트 토큰 없음)",
+ "sources": {
+  "docs/12-레이더모듈.md": "3741cbe3dbee",
+  "docs/13-원클릭제작흐름.md": "c20faa13b4fe",
+  "docs/14-환경설정과대기큐.md": "b3864b2efcec"
+ },
+ "changed": [
+  "S-OC1",
+  "S-RD1",
+  "S-RD2",
+  "S-RD3",
+  "S-RD4",
+  "S-ST1",
+  "S-ST2",
+  "S-CH1",
+  "S-ST4",
+  "S-QU1"
+ ],
+ "removed": [],
+ "screens": {
+  "S-OC1": {
+   "id": "S-OC1",
+   "name": "원클릭 제작",
+   "type_raw": "폼",
+   "route": "/make/oneclick",
+   "purpose": "방식·소재·제작 모드 정해 제작 시작",
+   "blocks": [
+    {
+     "type": "header",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "cards",
+     "label": "제작 방식(규칙 배지·미리보기)",
+     "items": [
+      "제작 방식(규칙 배지",
+      "미리보기)"
+     ]
+    },
+    {
+     "type": "input",
+     "label": "소재(선택)",
+     "items": [
+      "소재(선택)"
+     ]
+    },
+    {
+     "type": "radio",
+     "label": "제작 모드 3택(기본 자동제작",
+     "items": [
+      "제작 모드 3택(기본 자동제작"
+     ]
+    },
+    {
+     "type": "§16)",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "select",
+     "label": "채널",
+     "items": [
+      "채널"
+     ]
+    },
+    {
+     "type": "summary",
+     "label": "채널 업로드 방식(읽기 전용)+link:환경설정(docs/14 S-ST4)",
+     "items": [
+      "채널 업로드 방식(읽기 전용)+link:환경설정(docs",
+      "14 S-ST4)"
+     ]
+    },
+    {
+     "type": "input",
+     "label": "첫 예약 시각·다음 편 간격",
+     "items": [
+      "첫 예약 시각",
+      "다음 편 간격"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "원클릭 제작",
+     "items": [
+      "원클릭 제작"
+     ]
+    },
+    {
+     "type": "aside",
+     "label": "최근 제작 기록",
+     "items": [
+      "최근 제작 기록"
+     ]
+    }
+   ],
+   "data": [
+    "jobs",
+    "topics"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "권리 게이트",
+    "관문 ① 소재"
+   ],
+   "states_combined": "",
+   "source": "docs/13-원클릭제작흐름.md",
+   "type": "form",
+   "must_missing": [
+    "라벨 있는 입력",
+    "취소·뒤로"
+   ],
+   "should_missing": [
+    "필수 표시·도움말",
+    "임시 저장(긴 폼)"
+   ],
+   "states_missing": [],
+   "hash": "f2d8ed97860f",
+   "wireframe": "design/wireframes/S-OC1.html"
+  },
+  "S-RD1": {
+   "id": "S-RD1",
+   "name": "소재 피드",
+   "type_raw": "목록",
+   "route": "/radar/feed",
+   "purpose": "채널 결에 맞는 카테고리 후보 보기",
+   "blocks": [
+    {
+     "type": "header",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "tabs",
+     "label": "카테고리 9",
+     "items": [
+      "카테고리 9"
+     ]
+    },
+    {
+     "type": "card",
+     "label": "썸네일·근거 한 줄·조회 시점",
+     "items": [
+      "썸네일",
+      "근거 한 줄",
+      "조회 시점"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "원클릭으로 만들기",
+     "items": [
+      "원클릭으로 만들기"
+     ]
+    }
+   ],
+   "data": [
+    "radar_*"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "S-OC1"
+   ],
+   "states_combined": "",
+   "source": "docs/13-원클릭제작흐름.md",
+   "type": "list",
+   "must_missing": [
+    "검색",
+    "필터",
+    "페이지·더 보기"
+   ],
+   "should_missing": [
+    "정렬",
+    "일괄 작업(선택·삭제·내보내기)"
+   ],
+   "states_missing": [
+    "빈",
+    "로딩",
+    "오류"
+   ],
+   "hash": "c9f8df495ebc",
+   "wireframe": "design/wireframes/S-RD1.html"
+  },
+  "S-RD2": {
+   "id": "S-RD2",
+   "name": "방식별 작품 레이더",
+   "type_raw": "목록",
+   "route": "/radar/works",
+   "purpose": "경쟁도·온도로 작품 고르기",
+   "blocks": [
+    {
+     "type": "search",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "filter",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "row",
+     "label": "작품·상위 영상·점수·경쟁 채널 수",
+     "items": [
+      "작품",
+      "상위 영상",
+      "점수",
+      "경쟁 채널 수"
+     ]
+    }
+   ],
+   "data": [
+    "radar_*"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "S-RD3"
+   ],
+   "states_combined": "",
+   "source": "docs/13-원클릭제작흐름.md",
+   "type": "list",
+   "must_missing": [
+    "표 또는 목록",
+    "페이지·더 보기"
+   ],
+   "should_missing": [
+    "정렬",
+    "새로 만들기",
+    "일괄 작업(선택·삭제·내보내기)",
+    "저장된 보기·열 설정"
+   ],
+   "states_missing": [
+    "빈",
+    "로딩",
+    "오류"
+   ],
+   "hash": "0f331f3f4eeb",
+   "wireframe": "design/wireframes/S-RD2.html"
+  },
+  "S-RD3": {
+   "id": "S-RD3",
+   "name": "진입 성적표",
+   "type_raw": "대시보드",
+   "route": "/radar/entry",
+   "purpose": "GO 작품 확인",
+   "blocks": [
+    {
+     "type": "grid",
+     "label": "GO 카드(근거·조회 시점)",
+     "items": [
+      "GO 카드(근거",
+      "조회 시점)"
+     ]
+    },
+    {
+     "type": "link",
+     "label": "결 지도",
+     "items": [
+      "결 지도"
+     ]
+    }
+   ],
+   "data": [
+    "radar_*"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "S-OC1"
+   ],
+   "states_combined": "",
+   "source": "docs/13-원클릭제작흐름.md",
+   "type": "dashboard",
+   "must_missing": [
+    "핵심 지표 요약(KPI 3~6개)",
+    "기간 선택",
+    "추세 차트 또는 표",
+    "마지막 갱신 시각"
+   ],
+   "should_missing": [
+    "이전 기간 대비(증감)",
+    "내보내기(CSV·PDF)",
+    "세그먼트·담당자 필터",
+    "할 일·알림(지표가 행동으로 이어지게)"
+   ],
+   "states_missing": [
+    "빈",
+    "로딩",
+    "오류"
+   ],
+   "hash": "66a5de81f0d8",
+   "wireframe": "design/wireframes/S-RD3.html"
+  },
+  "S-RD4": {
+   "id": "S-RD4",
+   "name": "인물선점 레이더",
+   "type_raw": "목록",
+   "route": "/radar/persons",
+   "purpose": "오늘의 픽 확인",
+   "blocks": [
+    {
+     "type": "순위 열 3+",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "clip",
+     "label": "조회수",
+     "items": [
+      "조회수"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "원클릭으로 만들기",
+     "items": [
+      "원클릭으로 만들기"
+     ]
+    }
+   ],
+   "data": [
+    "radar_persons"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "S-OC1"
+   ],
+   "states_combined": "",
+   "source": "docs/13-원클릭제작흐름.md",
+   "type": "list",
+   "must_missing": [
+    "검색",
+    "필터",
+    "표 또는 목록",
+    "페이지·더 보기"
+   ],
+   "should_missing": [
+    "정렬",
+    "일괄 작업(선택·삭제·내보내기)",
+    "저장된 보기·열 설정"
+   ],
+   "states_missing": [
+    "빈",
+    "로딩",
+    "오류"
+   ],
+   "hash": "1a1e79acb5b3",
+   "wireframe": "design/wireframes/S-RD4.html"
+  },
+  "S-ST1": {
+   "id": "S-ST1",
+   "name": "환경설정 · 계정 설정",
+   "type_raw": "설정",
+   "route": "/settings/account",
+   "purpose": "내 계정 기본 정보·외부 도구 로그인 세션 확인",
+   "blocks": [
+    {
+     "type": "tabs",
+     "label": "3",
+     "items": [
+      "3"
+     ]
+    },
+    {
+     "type": "field",
+     "label": "표시 이름·이메일(읽기 전용)",
+     "items": [
+      "표시 이름",
+      "이메일(읽기 전용)"
+     ]
+    },
+    {
+     "type": "select",
+     "label": "기본 채널",
+     "items": [
+      "기본 채널"
+     ]
+    },
+    {
+     "type": "section",
+     "label": "로그인 세션 — Aside 연결(badge:미연결·로그인됨·확인 필요·세션 만료",
+     "items": [
+      "로그인 세션 — Aside 연결(badge:미연결",
+      "로그인됨",
+      "확인 필요",
+      "세션 만료"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "Aside 열기·로그인 상태 확인·연결 해제)",
+     "items": [
+      "Aside 열기",
+      "로그인 상태 확인",
+      "연결 해제)"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "저장",
+     "items": [
+      "저장"
+     ]
+    }
+   ],
+   "data": [
+    "accounts",
+    "external_sessions"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "S-ST2"
+   ],
+   "states_combined": "",
+   "source": "docs/14-환경설정과대기큐.md",
+   "type": "settings",
+   "must_missing": [
+    "설정 입력"
+   ],
+   "should_missing": [
+    "위험 작업 구역(삭제·탈퇴) 분리·확인"
+   ],
+   "states_missing": [],
+   "hash": "0d8dbff37bf8",
+   "wireframe": "design/wireframes/S-ST1.html"
+  },
+  "S-ST2": {
+   "id": "S-ST2",
+   "name": "환경설정 · AI API 설정",
+   "type_raw": "설정",
+   "route": "/settings/ai",
+   "purpose": "Claude·ChatGPT·Gemini API 키 등록",
+   "blocks": [
+    {
+     "type": "tabs",
+     "label": "3",
+     "items": [
+      "3"
+     ]
+    },
+    {
+     "type": "row",
+     "label": "제공자·키 상태(마스킹)·마지막 확인 시각",
+     "items": [
+      "제공자",
+      "키 상태(마스킹)",
+      "마지막 확인 시각"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "키 재입력·연결 확인·삭제",
+     "items": [
+      "키 재입력",
+      "연결 확인",
+      "삭제"
+     ]
+    },
+    {
+     "type": "select",
+     "label": "용도 배정(§8)",
+     "items": [
+      "용도 배정(§8)"
+     ]
+    }
+   ],
+   "data": [
+    "ai_providers"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인(본인)",
+   "next": [
+    "S-ST4"
+   ],
+   "states_combined": "",
+   "source": "docs/14-환경설정과대기큐.md",
+   "type": "settings",
+   "must_missing": [
+    "설정 입력",
+    "저장·저장됨 표시"
+   ],
+   "should_missing": [],
+   "states_missing": [],
+   "hash": "b7f67074638b",
+   "wireframe": "design/wireframes/S-ST2.html"
+  },
+  "S-CH1": {
+   "id": "S-CH1",
+   "name": "채널 관리(사이드바 메뉴)",
+   "type_raw": "설정",
+   "route": "/channels",
+   "purpose": "구글 계정 여러 개와 채널을 채널 단위로 관리",
+   "blocks": [
+    {
+     "type": "nav(좌측)",
+     "label": "구글 계정 목록(추가 순서대로 아래로 쌓임) + 맨 아래 button:＋ 구글 계정 추가(OAuth)",
+     "items": [
+      "구글 계정 목록(추가 순서대로 아래로 쌓임) + 맨 아래 button:＋ 구글 계정 추가(OAuth)"
+     ]
+    },
+    {
+     "type": "detail(우측",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "선택 계정)",
+     "label": "계정 표시 이메일·연결 상태·[계정 제거(토큰 폐기)]",
+     "items": [
+      "계정 표시 이메일",
+      "연결 상태",
+      "[계정 제거(토큰 폐기)]"
+     ]
+    },
+    {
+     "type": "list",
+     "label": "이 계정의 YouTube 채널(별칭·연결 상태 배지·channelId 끝자리·연결 ID·업로드 방식(읽기",
+     "items": [
+      "이 계정의 YouTube 채널(별칭",
+      "연결 상태 배지",
+      "channelId 끝자리",
+      "연결 ID",
+      "업로드 방식(읽기"
+     ]
+    },
+    {
+     "type": "s-st4 링크))",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "button",
+     "label": "채널 등록·해제",
+     "items": [
+      "채널 등록",
+      "해제"
+     ]
+    }
+   ],
+   "data": [
+    "google_accounts",
+    "yt_channels"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인(본인)",
+   "next": [
+    "S-ST4"
+   ],
+   "states_combined": "",
+   "source": "docs/14-환경설정과대기큐.md",
+   "type": "settings",
+   "must_missing": [
+    "구역(탭·사이드 메뉴)",
+    "설정 입력",
+    "저장·저장됨 표시"
+   ],
+   "should_missing": [
+    "위험 작업 구역(삭제·탈퇴) 분리·확인"
+   ],
+   "states_missing": [],
+   "hash": "9d5b19acdc3c",
+   "wireframe": "design/wireframes/S-CH1.html"
+  },
+  "S-ST4": {
+   "id": "S-ST4",
+   "name": "환경설정 · 업로드 방식",
+   "type_raw": "설정",
+   "route": "/settings/upload",
+   "purpose": "전역 기본 확인 + 채널별 업로드 방식 선택",
+   "blocks": [
+    {
+     "type": "tabs",
+     "label": "3",
+     "items": [
+      "3"
+     ]
+    },
+    {
+     "type": "field",
+     "label": "전역 기본 `검수 후 업로드`(고정)",
+     "items": [
+      "전역 기본 `검수 후 업로드`(고정)"
+     ]
+    },
+    {
+     "type": "table",
+     "label": "채널·업로드 방식·켤 수 있는지(조건 표시)",
+     "items": [
+      "채널",
+      "업로드 방식",
+      "켤 수 있는지(조건 표시)"
+     ]
+    },
+    {
+     "type": "toggle",
+     "label": "자동 예약(조건 미충족 시 잠김)",
+     "items": [
+      "자동 예약(조건 미충족 시 잠김)"
+     ]
+    },
+    {
+     "type": "note",
+     "label": "안 A 설명 링크",
+     "items": [
+      "안 A 설명 링크"
+     ]
+    }
+   ],
+   "data": [
+    "yt_channels"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인(본인)",
+   "next": [
+    "S-OC1"
+   ],
+   "states_combined": "",
+   "source": "docs/14-환경설정과대기큐.md",
+   "type": "settings",
+   "must_missing": [
+    "설정 입력",
+    "저장·저장됨 표시"
+   ],
+   "should_missing": [
+    "위험 작업 구역(삭제·탈퇴) 분리·확인"
+   ],
+   "states_missing": [],
+   "hash": "ea30817e3059",
+   "wireframe": "design/wireframes/S-ST4.html"
+  },
+  "S-QU1": {
+   "id": "S-QU1",
+   "name": "대기 큐",
+   "type_raw": "목록",
+   "route": "/queue",
+   "purpose": "여러 작업의 제작 차례 관리",
+   "blocks": [
+    {
+     "type": "header",
+     "label": "",
+     "items": []
+    },
+    {
+     "type": "stat",
+     "label": "LLM 슬롯·GPU 슬롯 사용/전체",
+     "items": [
+      "LLM 슬롯",
+      "GPU 슬롯 사용",
+      "전체"
+     ]
+    },
+    {
+     "type": "list",
+     "label": "실행 중·대기·사람 대기·자원 대기",
+     "items": [
+      "실행 중",
+      "대기",
+      "사람 대기",
+      "자원 대기"
+     ]
+    },
+    {
+     "type": "row",
+     "label": "작품·구성·제작 모드·상태·대기 사유",
+     "items": [
+      "작품",
+      "구성",
+      "제작 모드",
+      "상태",
+      "대기 사유"
+     ]
+    },
+    {
+     "type": "button",
+     "label": "순서 변경·일시정지·재개·취소·재시도",
+     "items": [
+      "순서 변경",
+      "일시정지",
+      "재개",
+      "취소",
+      "재시도"
+     ]
+    }
+   ],
+   "data": [
+    "jobs",
+    "job_events"
+   ],
+   "api": [
+    "미정"
+   ],
+   "role": "로그인",
+   "next": [
+    "제작 현황",
+    "승인함"
+   ],
+   "states_combined": "",
+   "source": "docs/14-환경설정과대기큐.md",
+   "type": "list",
+   "must_missing": [
+    "검색",
+    "필터",
+    "페이지·더 보기"
+   ],
+   "should_missing": [
+    "정렬",
+    "새로 만들기",
+    "일괄 작업(선택·삭제·내보내기)",
+    "저장된 보기·열 설정"
+   ],
+   "states_missing": [],
+   "hash": "ee1e40307f03",
+   "wireframe": "design/wireframes/S-QU1.html"
+  }
+ },
+ "states": {
+  "S-OC1": {
+   "빈": "소재 비움 → 레이더 후보 제시(사람 확정)",
+   "로딩": "방식 카드 스켈레톤",
+   "오류": "권리 미확인 → 업로드 경로 잠김 배지",
+   "성공": "제작 현황에 작업 추가"
+  },
+  "S-RD1~4": {
+   "빈": "수동 입력 안내(단계 5 초기)",
+   "로딩": "카드 스켈레톤",
+   "오류": "수집 실패 시 마지막 스냅샷 + 조회 시점",
+   "성공": "—"
+  },
+  "S-ST2": {
+   "빈": "\"등록된 API 키 없음\" + 키 입력",
+   "로딩": "연결 확인 중",
+   "오류": "키 거부 → 상태 `확인 실패`, 키 값은 다시 보여 주지 않음",
+   "성공": "마스킹된 키 + 확인 시각"
+  },
+  "S-CH1": {
+   "빈": "계정 0개: 좌측엔 ＋ 추가만, 우측 \"구글 계정을 추가하세요\". 계정은 있고 채널 0개: 상세에 \"등록된 채널 없음\" + 채널 등록",
+   "로딩": "OAuth 진행 중 / 채널 목록 스켈레톤",
+   "오류": "토큰 만료·권한 부족 배지 + 재연결 버튼, 추가 실패 시 목록 변화 없음",
+   "성공": "새 계정이 목록 맨 아래에 추가되고 선택됨"
+  },
+  "S-ST4": {
+   "빈": "\"연결된 채널 없음\" → 채널 관리(S-CH1)",
+   "로딩": "스켈레톤",
+   "오류": "조건 미충족 사유 표시(권리·점검·채널 켬)",
+   "성공": "저장됨 표시"
+  },
+  "S-QU1": {
+   "빈": "\"대기 작업 없음\" + 원클릭 제작 링크",
+   "로딩": "목록 스켈레톤",
+   "오류": "실패 작업에 사유·재시도",
+   "성공": "완료 작업은 제작 현황으로 이동"
+  },
+  "S-ST1": {
+   "빈": "Aside 미연결 배지 + [Aside 열기]",
+   "로딩": "스켈레톤 / 로그인 상태 확인 중",
+   "오류": "저장 실패 / Aside `확인 필요`·`세션 만료` 배지",
+   "성공": "저장됨 표시 / `로그인됨"
+  }
+ },
+ "flows": {},
+ "apis": {},
+ "tables": {
+  "radar_snapshots": {
+   "name": "radar_snapshots",
+   "row": {
+    "테이블": "radar_snapshots",
+    "핵심 필드": "수집 시각, 모듈, 소스, 수집 방식(공식 API / 수동 입력)"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "radar_persons": {
+   "name": "radar_persons",
+   "row": {
+    "테이블": "radar_persons",
+    "핵심 필드": "이름(공개된 활동명), 분야, `fit_score`, `competition_index`, 스냅샷 ID"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "radar_person_clips": {
+   "name": "radar_person_clips",
+   "row": {
+    "테이블": "radar_person_clips",
+    "핵심 필드": "person_id, 영상 ID·제목, 조회수, `views_at"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "radar_competitors": {
+   "name": "radar_competitors",
+   "row": {
+    "테이블": "radar_competitors",
+    "핵심 필드": "person_id, 채널, 규모 구간, 30/90일 조회"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "radar_fandom": {
+   "name": "radar_fandom",
+   "row": {
+    "테이블": "radar_fandom",
+    "핵심 필드": "아티스트/그룹, `preempt_index`, 대표 영상"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "radar_categories": {
+   "name": "radar_categories",
+   "row": {
+    "테이블": "radar_categories",
+    "핵심 필드": "카테고리명, 합산 조회수, 영상 수, 기간, 세부 영상"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "radar_sources": {
+   "name": "radar_sources",
+   "row": {
+    "테이블": "radar_sources",
+    "핵심 필드": "출처 유형, 수집 방식, `tos_status`(확인함/미확인/금지)"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "topics.radar_ref": {
+   "name": "topics.radar_ref",
+   "row": {
+    "테이블": "topics.radar_ref",
+    "핵심 필드": "후보가 어떤 레이더 카드에서 왔는지 → 성과와 연결(레이더 정확도 측정)"
+   },
+   "source": "docs/12-레이더모듈.md"
+  },
+  "accounts": {
+   "name": "accounts",
+   "row": {
+    "테이블": "accounts",
+    "핵심 필드": "id, 표시 이름, 이메일, 기본 채널",
+    "비고": "계정 설정 탭의 최소 정의(§8)"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "ai_providers": {
+   "name": "ai_providers",
+   "row": {
+    "테이블": "ai_providers",
+    "핵심 필드": "account_id, provider(`claude`/`chatgpt`/`gemini`), `secret_ref`, 상태, 마지막 확인 시각, 용도 배정",
+    "비고": "키 값 대신 비밀 저장소 참조만"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "google_accounts": {
+   "name": "google_accounts",
+   "row": {
+    "테이블": "google_accounts",
+    "핵심 필드": "account_id, 구글 계정 식별자, 표시 이메일, `token_ref`, 허용 스코프, 상태, 추가 시각(S-CH1 목록 순서)",
+    "비고": "토큰은 참조만. 1 : N `yt_channels`. \"선택된 계정\"은 저장하지 않는 화면 상태"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "external_sessions": {
+   "name": "external_sessions",
+   "row": {
+    "테이블": "external_sessions",
+    "핵심 필드": "account_id, 도구(`aside`), 상태(미연결/로그인됨/확인 필요/세션 만료), 마지막 확인 시각",
+    "비고": "비밀번호·세션 토큰 저장 안 함"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "yt_channels": {
+   "name": "yt_channels",
+   "row": {
+    "테이블": "yt_channels",
+    "핵심 필드": "channel_id, google_account_id, alias, `upload_mode`(`review_first`/`auto_schedule`), status, 등록·해제 시각",
+    "비고": "채널 단위 등록. `auto_schedule`은 안 A 조건 충족 시에만"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "jobs` 추가": {
+   "name": "jobs` 추가",
+   "row": {
+    "테이블": "jobs` 추가",
+    "핵심 필드": "queue_state`, `priority`, `slot_id`, `hold_reason",
+    "비고": "[docs/01 §3](01-상태머신과데이터모델.md) jobs에 추가"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "settings_events": {
+   "name": "settings_events",
+   "row": {
+    "테이블": "settings_events",
+    "핵심 필드": "누가 · 언제 · 무엇(키 등록·삭제, 계정 연결·해제, 업로드 방식 변경) · 전후값",
+    "비고": "감사 로그. 비밀 값은 남기지 않음"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "승인 기록 추가": {
+   "name": "승인 기록 추가",
+   "row": {
+    "테이블": "승인 기록 추가",
+    "핵심 필드": "yt_channel_id`, `google_account_id`(연결 ID)",
+    "비고": "§6-1 채널 바인딩. 엔진 `기획승인.json`은 지금 `plan_hash`만 묶음"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  },
+  "jobs` 업로드 추가": {
+   "name": "jobs` 업로드 추가",
+   "row": {
+    "테이블": "jobs` 업로드 추가",
+    "핵심 필드": "upload_session_uri`, `video_id",
+    "비고": "§6-2 중복 업로드 방지"
+   },
+   "source": "docs/14-환경설정과대기큐.md"
+  }
+ },
+ "issues": [
+  [
+   "🔴",
+   "S-OC1",
+   "원클릭 제작(입력 폼) 필수 빠짐: 라벨 있는 입력, 취소·뒤로"
+  ],
+  [
+   "🟡",
+   "S-OC1",
+   "원클릭 제작 권장: 필수 표시·도움말, 임시 저장(긴 폼)"
+  ],
+  [
+   "🔴",
+   "S-OC1",
+   "다음 '권리 게이트' — 없는 화면 ID"
+  ],
+  [
+   "🔴",
+   "S-OC1",
+   "다음 '관문 ① 소재' — 없는 화면 ID"
+  ],
+  [
+   "🟡",
+   "S-OC1",
+   "데이터 'jobs' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "🟡",
+   "S-OC1",
+   "데이터 'topics' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "ℹ️",
+   "S-OC1",
+   "모르는 블록(회색 상자로 표시): aside, cards, input, radio, select, summary, §16)"
+  ],
+  [
+   "🔴",
+   "S-RD1",
+   "소재 피드(목록) 필수 빠짐: 검색, 필터, 페이지·더 보기"
+  ],
+  [
+   "🔴",
+   "S-RD1",
+   "소재 피드 상태 미정의: 빈, 로딩, 오류"
+  ],
+  [
+   "🟡",
+   "S-RD1",
+   "소재 피드 권장: 정렬, 일괄 작업(선택·삭제·내보내기)"
+  ],
+  [
+   "🟡",
+   "S-RD1",
+   "데이터 'radar_*' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "🔴",
+   "S-RD2",
+   "방식별 작품 레이더(목록) 필수 빠짐: 표 또는 목록, 페이지·더 보기"
+  ],
+  [
+   "🔴",
+   "S-RD2",
+   "방식별 작품 레이더 상태 미정의: 빈, 로딩, 오류"
+  ],
+  [
+   "🟡",
+   "S-RD2",
+   "방식별 작품 레이더 권장: 정렬, 새로 만들기, 일괄 작업(선택·삭제·내보내기), 저장된 보기·열 설정"
+  ],
+  [
+   "🟡",
+   "S-RD2",
+   "데이터 'radar_*' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "ℹ️",
+   "S-RD2",
+   "모르는 블록(회색 상자로 표시): row"
+  ],
+  [
+   "🔴",
+   "S-RD3",
+   "진입 성적표(대시보드) 필수 빠짐: 핵심 지표 요약(KPI 3~6개), 기간 선택, 추세 차트 또는 표, 마지막 갱신 시각"
+  ],
+  [
+   "🔴",
+   "S-RD3",
+   "진입 성적표 상태 미정의: 빈, 로딩, 오류"
+  ],
+  [
+   "🟡",
+   "S-RD3",
+   "진입 성적표 권장: 이전 기간 대비(증감), 내보내기(CSV·PDF), 세그먼트·담당자 필터, 할 일·알림(지표가 행동으로 이어지게)"
+  ],
+  [
+   "🟡",
+   "S-RD3",
+   "데이터 'radar_*' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "ℹ️",
+   "S-RD3",
+   "모르는 블록(회색 상자로 표시): grid"
+  ],
+  [
+   "🔴",
+   "S-RD4",
+   "인물선점 레이더(목록) 필수 빠짐: 검색, 필터, 표 또는 목록, 페이지·더 보기"
+  ],
+  [
+   "🔴",
+   "S-RD4",
+   "인물선점 레이더 상태 미정의: 빈, 로딩, 오류"
+  ],
+  [
+   "🟡",
+   "S-RD4",
+   "인물선점 레이더 권장: 정렬, 일괄 작업(선택·삭제·내보내기), 저장된 보기·열 설정"
+  ],
+  [
+   "ℹ️",
+   "S-RD4",
+   "모르는 블록(회색 상자로 표시): clip, 순위 열 3+"
+  ],
+  [
+   "🔴",
+   "S-ST1",
+   "환경설정 · 계정 설정(설정) 필수 빠짐: 설정 입력"
+  ],
+  [
+   "🟡",
+   "S-ST1",
+   "환경설정 · 계정 설정 권장: 위험 작업 구역(삭제·탈퇴) 분리·확인"
+  ],
+  [
+   "ℹ️",
+   "S-ST1",
+   "모르는 블록(회색 상자로 표시): field, section, select"
+  ],
+  [
+   "🔴",
+   "S-ST2",
+   "환경설정 · AI API 설정(설정) 필수 빠짐: 설정 입력, 저장·저장됨 표시"
+  ],
+  [
+   "ℹ️",
+   "S-ST2",
+   "모르는 블록(회색 상자로 표시): row, select"
+  ],
+  [
+   "🔴",
+   "S-CH1",
+   "채널 관리(사이드바 메뉴)(설정) 필수 빠짐: 구역(탭·사이드 메뉴), 설정 입력, 저장·저장됨 표시"
+  ],
+  [
+   "🟡",
+   "S-CH1",
+   "채널 관리(사이드바 메뉴) 권장: 위험 작업 구역(삭제·탈퇴) 분리·확인"
+  ],
+  [
+   "ℹ️",
+   "S-CH1",
+   "모르는 블록(회색 상자로 표시): detail(우측, nav(좌측), s-st4 링크)), 선택 계정)"
+  ],
+  [
+   "🔴",
+   "S-ST4",
+   "환경설정 · 업로드 방식(설정) 필수 빠짐: 설정 입력, 저장·저장됨 표시"
+  ],
+  [
+   "🟡",
+   "S-ST4",
+   "환경설정 · 업로드 방식 권장: 위험 작업 구역(삭제·탈퇴) 분리·확인"
+  ],
+  [
+   "ℹ️",
+   "S-ST4",
+   "모르는 블록(회색 상자로 표시): field, note, toggle"
+  ],
+  [
+   "🔴",
+   "S-QU1",
+   "대기 큐(목록) 필수 빠짐: 검색, 필터, 페이지·더 보기"
+  ],
+  [
+   "🟡",
+   "S-QU1",
+   "대기 큐 권장: 정렬, 새로 만들기, 일괄 작업(선택·삭제·내보내기), 저장된 보기·열 설정"
+  ],
+  [
+   "🔴",
+   "S-QU1",
+   "다음 '제작 현황' — 없는 화면 ID"
+  ],
+  [
+   "🔴",
+   "S-QU1",
+   "다음 '승인함' — 없는 화면 ID"
+  ],
+  [
+   "🟡",
+   "S-QU1",
+   "데이터 'jobs' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "🟡",
+   "S-QU1",
+   "데이터 'job_events' — 05_DATA_MODEL 표에 없음"
+  ],
+  [
+   "ℹ️",
+   "S-QU1",
+   "모르는 블록(회색 상자로 표시): row"
+  ],
+  [
+   "ℹ️",
+   "S-RD1",
+   "소재 피드 — 들어오는 경로 없음(메뉴에서만 진입이면 무시)"
+  ],
+  [
+   "ℹ️",
+   "S-RD2",
+   "방식별 작품 레이더 — 들어오는 경로 없음(메뉴에서만 진입이면 무시)"
+  ],
+  [
+   "ℹ️",
+   "S-RD4",
+   "인물선점 레이더 — 들어오는 경로 없음(메뉴에서만 진입이면 무시)"
+  ],
+  [
+   "ℹ️",
+   "S-ST1",
+   "환경설정 · 계정 설정 — 들어오는 경로 없음(메뉴에서만 진입이면 무시)"
+  ],
+  [
+   "ℹ️",
+   "S-CH1",
+   "채널 관리(사이드바 메뉴) — 들어오는 경로 없음(메뉴에서만 진입이면 무시)"
+  ],
+  [
+   "ℹ️",
+   "S-QU1",
+   "대기 큐 — 들어오는 경로 없음(메뉴에서만 진입이면 무시)"
+  ]
+ ]
+}

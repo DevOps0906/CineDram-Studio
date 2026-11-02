@@ -1,0 +1,52 @@
+flowchart LR
+  subgraph SC["화면"]
+    n_S_OC1["S-OC1 원클릭 제작"]
+    n_S_RD1["S-RD1 소재 피드"]
+    n_S_RD2["S-RD2 방식별 작품 레이더"]
+    n_S_RD3["S-RD3 진입 성적표"]
+    n_S_RD4["S-RD4 인물선점 레이더"]
+    n_S_ST1["S-ST1 환경설정 · 계정 설정"]
+    n_S_ST2["S-ST2 환경설정 · AI API 설정"]
+    n_S_CH1["S-CH1 채널 관리(사이드바 메뉴)"]
+    n_S_ST4["S-ST4 환경설정 · 업로드 방식"]
+    n_S_QU1["S-QU1 대기 큐"]
+  end
+  subgraph AP["API"]
+    n_api_미정["미정"]
+  end
+  subgraph DB["데이터"]
+    n_t_accounts[("accounts")]
+    n_t_ai_providers[("ai_providers")]
+    n_t_external_sessions[("external_sessions")]
+    n_t_google_accounts[("google_accounts")]
+    n_t_job_events[("job_events")]
+    n_t_jobs[("jobs")]
+    n_t_radar__[("radar_*")]
+    n_t_radar_persons[("radar_persons")]
+    n_t_topics[("topics")]
+    n_t_yt_channels[("yt_channels")]
+  end
+  n_S_OC1 --> n_api_미정
+  n_S_OC1 -.-> n_t_jobs
+  n_S_OC1 -.-> n_t_topics
+  n_S_RD1 --> n_api_미정
+  n_S_RD1 -.-> n_t_radar__
+  n_S_RD2 --> n_api_미정
+  n_S_RD2 -.-> n_t_radar__
+  n_S_RD3 --> n_api_미정
+  n_S_RD3 -.-> n_t_radar__
+  n_S_RD4 --> n_api_미정
+  n_S_RD4 -.-> n_t_radar_persons
+  n_S_ST1 --> n_api_미정
+  n_S_ST1 -.-> n_t_accounts
+  n_S_ST1 -.-> n_t_external_sessions
+  n_S_ST2 --> n_api_미정
+  n_S_ST2 -.-> n_t_ai_providers
+  n_S_CH1 --> n_api_미정
+  n_S_CH1 -.-> n_t_google_accounts
+  n_S_CH1 -.-> n_t_yt_channels
+  n_S_ST4 --> n_api_미정
+  n_S_ST4 -.-> n_t_yt_channels
+  n_S_QU1 --> n_api_미정
+  n_S_QU1 -.-> n_t_jobs
+  n_S_QU1 -.-> n_t_job_events

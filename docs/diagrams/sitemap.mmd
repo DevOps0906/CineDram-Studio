@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph g0["로그인"]
+    n_S_OC1["S-OC1 원클릭 제작<br/>/make/oneclick"]
+    n_S_RD1["S-RD1 소재 피드<br/>/radar/feed"]
+    n_S_RD2["S-RD2 방식별 작품 레이더<br/>/radar/works"]
+    n_S_RD3["S-RD3 진입 성적표<br/>/radar/entry"]
+    n_S_RD4["S-RD4 인물선점 레이더<br/>/radar/persons"]
+    n_S_ST1["S-ST1 환경설정 · 계정 설정<br/>/settings/account"]
+    n_S_QU1["S-QU1 대기 큐<br/>/queue"]
+  end
+  subgraph g1["로그인(본인)"]
+    n_S_ST2["S-ST2 환경설정 · AI API 설정<br/>/settings/ai"]
+    n_S_CH1["S-CH1 채널 관리(사이드바 메뉴)<br/>/channels"]
+    n_S_ST4["S-ST4 환경설정 · 업로드 방식<br/>/settings/upload"]
+  end
+  n_S_RD1 --> n_S_OC1
+  n_S_RD2 --> n_S_RD3
+  n_S_RD3 --> n_S_OC1
+  n_S_RD4 --> n_S_OC1
+  n_S_ST1 --> n_S_ST2
+  n_S_ST2 --> n_S_ST4
+  n_S_CH1 --> n_S_ST4
+  n_S_ST4 --> n_S_OC1
