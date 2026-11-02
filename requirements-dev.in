@@ -1,0 +1,4 @@
+# 개발·테스트 전용 (TestClient용 httpx). 런타임 잠금과 함께 설치한다.
+# 잠금: uv pip compile requirements-dev.in --generate-hashes --python-version 3.11 -o requirements-dev.txt
+-c requirements.txt
+httpx==0.28.1
