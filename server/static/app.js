@@ -10,12 +10,29 @@
 
   var opener = document.querySelector('[data-drawer-opener]');
   var closer = document.querySelector('.aside-close [data-act="drawer"]');
+  var aside = document.getElementById('side-panel');
+  var menuBtn = document.querySelector('[data-act="menu"]');
+  var nav = document.getElementById('main-nav');
+  // 드로어는 visibility 전환 중이라 열자마자 focus()가 무시된다 → 보일 때까지 다음 프레임에서 재시도.
+  function focusWhenVisible(el, tries) {
+    if (!el) return;
+    el.focus();
+    if (document.activeElement !== el && tries > 0) {
+      requestAnimationFrame(function () { focusWhenVisible(el, tries - 1); });
+    }
+  }
   function setDrawer(open) {
     if (app.classList.contains('drawer-open') === open) return;
     app.classList.toggle('drawer-open', open);
     if (opener) opener.setAttribute('aria-expanded', open);
-    if (open && closer) closer.focus();
-    else if (!open && opener) opener.focus();
+    if (open) focusWhenVisible(closer, 60);
+    else if (opener && (!aside || aside.contains(document.activeElement) || document.activeElement === document.body)) opener.focus();
+  }
+  function setMenu(open) {
+    if (app.classList.contains('menu-open') === open) return;
+    app.classList.toggle('menu-open', open);
+    if (menuBtn) menuBtn.setAttribute('aria-expanded', open);
+    if (!open && menuBtn && nav && nav.contains(document.activeElement)) menuBtn.focus();
   }
 
   document.addEventListener('click', function (e) {
@@ -26,12 +43,16 @@
       try { localStorage.setItem('cd-theme', d ? 'dark' : 'light'); } catch (err) { /* 저장 불가: 이번 화면만 */ }
       t.setAttribute('aria-pressed', d);
     } else if (a === 'menu') {
-      t.setAttribute('aria-expanded', app.classList.toggle('menu-open'));
+      setMenu(!app.classList.contains('menu-open'));
     } else if (a === 'drawer') {
       setDrawer(!app.classList.contains('drawer-open'));
     }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setDrawer(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (app.classList.contains('drawer-open')) setDrawer(false);
+    else setMenu(false);
+  });
 
   var area = document.querySelector('[data-poll]');
   if (!area || !window.fetch) return;

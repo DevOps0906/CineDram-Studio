@@ -92,13 +92,6 @@ def job_events(conn, job_id, limit=50):
     return [dict(r) for r in rows]
 
 
-def approvals(conn, job_id):
-    rows = conn.execute(
-        "SELECT approved_by, approved_at FROM approvals WHERE job_id = ? ORDER BY id", (job_id,)
-    )
-    return [dict(r) for r in rows]
-
-
 def latest_output(conn, job_id):
     row = conn.execute(
         "SELECT render_ver, file_path FROM outputs WHERE job_id = ? ORDER BY render_ver DESC, id DESC LIMIT 1",

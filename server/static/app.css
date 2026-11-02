@@ -13,3 +13,6 @@ a.pill { display: inline-flex; align-items: center; text-decoration: none; }
 .theme-sun { display: none; }
 .dark .theme-sun { display: inline; }
 .dark .theme-moon { display: none; }
+/* 선택지 비활성: 토큰 색만(대비 유지), 눌러도 고를 수 없음을 커서로 표시 */
+.opt[aria-disabled="true"], .opt:has(input:disabled) { background: var(--color-disabled); color: var(--color-disabled-fg); border-color: var(--color-border); cursor: not-allowed; }
+.opt[aria-disabled="true"] .muted, .opt:has(input:disabled) .muted { color: var(--color-disabled-fg); }

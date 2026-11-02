@@ -3,6 +3,7 @@
 자체 FastAPI 앱 + LocalSecurityMiddleware 로 감싸 실제 요청 경로와 같게 검사한다.
 venv(requirements-dev.txt)에서 실행. fastapi·httpx·jinja2가 없으면 skip.
 """
+import re
 import shutil
 import sqlite3
 import sys
@@ -10,6 +11,7 @@ import tempfile
 import unittest
 import warnings
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -48,7 +50,8 @@ class ViewsTestBase(unittest.TestCase):
 
     def make_client(self, db_path):
         app = FastAPI(debug=False, docs_url=None, redoc_url=None, openapi_url=None)
-        app.add_middleware(LocalSecurityMiddleware, port=PORT, csrf_secret=new_server_secret())
+        app.state.csrf_secret = new_server_secret()
+        app.add_middleware(LocalSecurityMiddleware, port=PORT, csrf_secret=app.state.csrf_secret)
         app.include_router(router)
         app.dependency_overrides[get_db_path] = lambda: str(db_path) if db_path else None
         return TestClient(app, base_url=f"http://127.0.0.1:{PORT}", client=("127.0.0.1", 50000))
@@ -156,7 +159,8 @@ class InboxPageTest(ViewsTestBase):
     def test_pending_rights_and_approved(self):
         self.add_job("review", rights="unverified", title="반납함의 책", work="파도 위 도서관")
         self.add_job("approved", title="회의실 메모", work="유리정원 사무소", channel="UCabcdefk3x7Qa")
-        self.seed([("INSERT INTO approvals(job_id, plan_hash, approved_by) VALUES (2, 'h', '운영자')", ())])
+        self.seed([("INSERT INTO job_events(job_id, from_state, to_state, message)"
+                    " VALUES (2, 'review', 'approved', '사람 영상 승인 · 채널 k3x7Qa · 요청 0123abcd')", ())])
         r = self.client.get("/inbox")
         self.assertEqual(r.status_code, 200)
         self.assertIn("반납함의 책", r.text)
@@ -164,7 +168,7 @@ class InboxPageTest(ViewsTestBase):
         self.assertNotIn("회의실 메모", r.text)
         r = self.client.get("/inbox?tab=approved")
         self.assertIn("회의실 메모", r.text)
-        self.assertIn("승인: 운영자", r.text)
+        self.assertIn("영상 승인: 사용자", r.text)
         self.assertIn("…k3x7Qa", r.text)
         self.assertNotIn("UCabcdefk3x7Qa", r.text)
 
@@ -186,7 +190,7 @@ class InboxPageTest(ViewsTestBase):
         self.assertNotIn(XSS, r.text)
         self.assertIn("&lt;script&gt;", r.text)
 
-    def test_no_post_route(self):
+    def test_no_post_on_list(self):
         r = self.client.post("/inbox", headers={"Origin": f"http://127.0.0.1:{PORT}"})
         self.assertEqual(r.status_code, 405)
 
@@ -195,6 +199,101 @@ class InboxPageTest(ViewsTestBase):
             r = c.get("/inbox")
         self.assertEqual(r.status_code, 503)
         self.assertIn("승인함을 불러오지 못했습니다", r.text)
+
+
+ORIGIN = {"Origin": f"http://127.0.0.1:{PORT}"}
+
+
+class ApproveTest(ViewsTestBase):
+    def token(self):
+        r = self.client.get("/inbox")
+        return re.search(r'<meta name="csrf-token" content="([^"]+)">', r.text).group(1)
+
+    def approve(self, job_id, token=None):
+        data = {"csrf_token": token if token is not None else self.token()}
+        return self.client.post(f"/inbox/{job_id}/approve", data=data, headers=ORIGIN, follow_redirects=False)
+
+    def row(self, sql, args=()):
+        conn = sqlite3.connect(self.db)
+        try:
+            return conn.execute(sql, args).fetchone()
+        finally:
+            conn.close()
+
+    def test_success(self):
+        self.add_job("review", channel="UCabcdefk3x7Qa")
+        self.assertIn('action="/inbox/1/approve"', self.client.get("/inbox").text)
+        with mock.patch("subprocess.Popen") as popen, mock.patch("subprocess.run") as run:
+            r = self.approve(1)
+        self.assertEqual(r.status_code, 303)
+        self.assertEqual(r.headers["location"], "/inbox")
+        popen.assert_not_called()  # 엔진 approve(기획승인.json) 서브프로세스를 부르지 않는다
+        run.assert_not_called()
+        self.assertEqual(self.row("SELECT state FROM jobs WHERE id = 1")[0], "approved")
+        # approvals 는 기획 승인 사본: 영상 승인은 넣지 않는다
+        self.assertEqual(self.row("SELECT COUNT(*) FROM approvals")[0], 0)
+        self.assertIn("영상 승인: 사용자", self.client.get("/inbox?tab=approved").text)
+        msg = self.row("SELECT message FROM job_events WHERE job_id = 1 AND to_state = 'approved'")[0]
+        self.assertRegex(msg, r"^사람 영상 승인 · 채널 k3x7Qa · 요청 [0-9a-f]{8}$")
+        self.assertNotIn("UCabcdefk3x7Qa", msg)
+
+    def test_rights_unverified_rejected(self):
+        self.add_job("review", rights="unverified")
+        self.seed([("INSERT INTO jobs(state, rule_set) VALUES ('review', '[]')", ())])  # 소스 없음(NULL)
+        self.assertNotIn("/approve", self.client.get("/inbox").text)
+        for job_id in (1, 2):
+            r = self.approve(job_id)
+            self.assertEqual(r.status_code, 409)
+            self.assertIn("(R9-1)", r.text)
+            self.assertEqual(self.row("SELECT state FROM jobs WHERE id = ?", (job_id,))[0], "review")
+        self.assertEqual(self.row("SELECT COUNT(*) FROM approvals")[0], 0)
+
+    def test_second_post_conflicts(self):
+        self.add_job("review")
+        self.assertEqual(self.approve(1).status_code, 303)
+        r = self.approve(1)
+        self.assertEqual(r.status_code, 409)
+        self.assertIn("이미 처리됐거나", r.text)
+        self.assertEqual(self.row("SELECT COUNT(*) FROM approvals")[0], 0)
+        self.assertEqual(self.row("SELECT COUNT(*) FROM job_events WHERE to_state = 'approved'")[0], 1)
+
+    def test_running_rejected(self):
+        self.add_job("review")
+        self.seed([("UPDATE jobs SET queue_state = 'running' WHERE id = 1", ())])
+        self.assertEqual(self.approve(1).status_code, 409)
+        self.assertEqual(self.row("SELECT state FROM jobs WHERE id = 1")[0], "review")
+        self.assertEqual(self.row("SELECT COUNT(*) FROM approvals")[0], 0)
+
+    def test_missing_token_forbidden(self):
+        self.add_job("review")
+        self.client.get("/inbox")  # 쿠키는 있으나 제출 토큰 없음
+        r = self.client.post("/inbox/1/approve", data={}, headers=ORIGIN, follow_redirects=False)
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(self.approve(1, token="위조").status_code, 403)
+        self.assertEqual(self.row("SELECT state FROM jobs WHERE id = 1")[0], "review")
+
+    def test_unknown_job(self):
+        self.add_job("review")
+        r = self.approve(99)
+        self.assertEqual(r.status_code, 404)
+        self.assertNotIn("narrow-detail", r.text)  # 거부 응답은 카드를 고르지 않는다(job=None)
+
+    def test_event_insert_failure_rolls_back(self):
+        self.add_job("review")
+        self.seed([("CREATE TRIGGER fail_approve BEFORE INSERT ON job_events WHEN NEW.to_state = 'approved'"
+                    " BEGIN SELECT RAISE(ABORT, '주입된 실패'); END", ())])
+        r = self.approve(1)
+        self.assertEqual(r.status_code, 503)
+        self.assertIn("승인을 저장하지 못했습니다", r.text)
+        self.assertNotIn("주입된 실패", r.text)
+        self.assertEqual(self.row("SELECT state FROM jobs WHERE id = 1")[0], "review")  # UPDATE 도 되돌려짐
+
+    def test_db_unavailable_503(self):
+        self.client.close()
+        self.client = self.make_client(None)
+        r = self.approve(1)
+        self.assertEqual(r.status_code, 503)
+        self.assertIn("승인을 저장하지 못했습니다", r.text)
 
 
 class StaticAndReadOnlyTest(ViewsTestBase):

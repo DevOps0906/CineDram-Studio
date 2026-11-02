@@ -16,6 +16,9 @@
   {% endif %}
 </div>
 
+{% if notice %}
+<div class="banner" role="alert">{{ icon('warn') }}<span class="grow">{{ notice }}</span></div>
+{% endif %}
 {% if error %}
 <div class="banner" role="alert">
   {{ icon('warn') }}
@@ -48,10 +51,17 @@
       <p class="label muted">권리(rights_status)가 확인되기 전에는 업로드 경로가 열리지 않습니다 (R9-1).</p>
       {%- endif %}
       {%- for a in c.approvals %}
-      <p class="label muted num">승인: {{ a.by }} · {{ a.at }} · 권리 {{ c.rights or '미확인' }}</p>
+      <p class="label muted num">영상 승인: {{ a.by }} · {{ a.at }} · 권리 {{ c.rights or '미확인' }}</p>
       {%- endfor %}
       {%- if tab == 'approved' and c.channel %}
       <p class="label num">{{ icon('tv') }} 업로드 대상 채널 ID {{ c.channel }}</p>
+      {%- endif %}
+      {%- if c.state == 'review' and not unverified %}
+      {# 영상 승인(review → approved). 엔진 기획 승인과 별개. 권리 미확인 카드에는 승인 버튼을 두지 않는다(R9-1). #}
+      <form class="decide" method="post" action="/inbox/{{ c.id }}/approve">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-primary" type="submit">승인</button>
+      </form>
       {%- endif %}
       {%- if is_sel and picked %}
       {# 모바일(~767)은 상세 열이 없어 고른 카드 안에 상세를 펼친다. #}
@@ -108,7 +118,7 @@
 {% endif %}
 {% if selected.approvals %}
 <h3 class="label muted">승인 기록</h3>
-<ul class="log num">{% for a in selected.approvals %}<li><span>승인 · {{ a.by }}</span><span>{{ a.at }}</span></li>{% endfor %}</ul>
+<ul class="log num">{% for a in selected.approvals %}<li><span>영상 승인 · {{ a.by }}</span><span>{{ a.at }}</span></li>{% endfor %}</ul>
 {% endif %}
 {% else %}
 <p class="label muted">{% if error %}불러오지 못했습니다.{% else %}선택한 카드가 없습니다.{% endif %}</p>

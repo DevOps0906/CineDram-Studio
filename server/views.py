@@ -1,8 +1,9 @@
-"""운영 화면 GET 2종(제작 현황 /status, 승인함 /inbox) — Jinja2 서버 렌더(ADR-001).
+"""운영 화면: 제작 현황 /status, 승인함 /inbox(+ 영상 승인 POST) — Jinja2 서버 렌더(ADR-001).
 
-DB는 읽기 전용(server/db.py). 폼·POST는 다음 라운드(CSRF 토큰 자리는 템플릿 `csrf_token` 변수로만 예약).
+조회는 읽기 전용 연결, 영상 승인만 쓰기 연결 한 트랜잭션(server/db.py). POST는 require_csrf 필수.
 CSS는 시안 정본 design/wireframes/_tokens.css·_app.css 를 그대로 내보낸다(사본 없음).
 """
+import hashlib
 import json
 import logging
 import re
@@ -13,11 +14,12 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
 from server import db
+from server.csrf import CookieConflict, cookie_pair, require_csrf
 
 logger = logging.getLogger("server.views")
 
@@ -291,6 +293,10 @@ def status_page(request: Request, job: Optional[int] = None, db_path=Depends(get
 
 @router.get("/inbox", response_class=HTMLResponse)
 def inbox_page(request: Request, tab: str = "pending", job: Optional[int] = None, db_path=Depends(get_db_path)):
+    return _inbox_response(request, db_path, tab, job)
+
+
+def _inbox_response(request, db_path, tab, job, notice=None, status_code=200):
     if tab not in ("pending", "approved"):
         tab = "pending"
     now = datetime.now(timezone.utc)
@@ -301,8 +307,10 @@ def inbox_page(request: Request, tab: str = "pending", job: Optional[int] = None
             states = db.REVIEW_STATES if tab == "pending" else db.APPROVED_STATES
             cards = [_view_job(j, now) for j in db.list_jobs(conn, states)]
             for card in cards:
+                # 영상 승인 기록은 job_events(review→approved)가 정본. approvals 는 기획 승인 사본이라 쓰지 않는다.
                 card["approvals"] = [
-                    {"by": a["approved_by"], "at": fmt_local(a["approved_at"])} for a in db.approvals(conn, card["id"])
+                    {"by": APPROVER, "at": fmt_local(e["at"])} for e in db.job_events(conn, card["id"])
+                    if e["to_state"] == "approved" and (e["message"] or "").startswith(VIDEO_APPROVAL_PREFIX)
                 ]
             selected = _pick(cards, job)
             events = _view_events(db.job_events(conn, selected["id"])) if selected else []
@@ -313,16 +321,92 @@ def inbox_page(request: Request, tab: str = "pending", job: Optional[int] = None
         logger.warning("승인함 조회 실패: %s", exc)
         return _render(request, "inbox.html", {"page": "inbox", "error": True, "tab": tab, "cards": [],
                                                "tab_counts": None, "selected": None, "events": [],
-                                               "output": None}, status_code=503)
+                                               "output": None, "notice": notice}, status_code=503)
     tab_counts = {
         "pending": sum(counts.get(s, 0) for s in db.REVIEW_STATES),
         "approved": sum(counts.get(s, 0) for s in db.APPROVED_STATES),
     }
     return _render(request, "inbox.html", {
         "page": "inbox", "nav_counts": _nav_counts(counts), "tab": tab, "tab_counts": tab_counts,
-        "cards": cards, "selected": selected, "events": events, "picked": job is not None,
+        "cards": cards, "selected": selected, "events": events, "picked": job is not None, "notice": notice,
         "output": {"ver": output["render_ver"], "name": Path(output["file_path"]).name} if output else None,
-    })
+    }, status_code=status_code)
+
+
+# ---------------------------------------------------------------- 영상 승인(review → approved, docs/01 §2)
+# 엔진 approve(기획 승인, 기획승인.json)는 절대 부르지 않는다: 덮어쓰면 P0-2 우회가 된다.
+APPROVER = "사용자"  # 엔진 approve --by 기본값과 같은 상수(사람 1인 로컬 도구)
+APPROVABLE_RIGHTS = ("own", "licensed")
+VIDEO_APPROVAL_PREFIX = "사람 영상 승인"
+MSG_RIGHTS = "권리(rights_status)가 확인되지 않아 승인할 수 없습니다. 업로드 경로가 열리지 않습니다 (R9-1)."
+MSG_STATE = "이미 처리됐거나 지금 승인할 수 없는 상태입니다(실행 중 포함). 새로고침 후 확인하세요."
+MSG_MISSING = "작업을 찾을 수 없습니다."
+
+
+class ApproveRejected(Exception):
+    def __init__(self, status_code, message):
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+
+
+def _request_tag(request):
+    """감사용 요청 표지: sid 쿠키의 sha256 앞 8자(쿠키 값 자체는 남기지 않는다)."""
+    try:
+        sid, _ = cookie_pair(request.scope.get("headers", []))
+    except CookieConflict:
+        sid = None
+    return hashlib.sha256(sid.encode("utf-8")).hexdigest()[:8] if sid else "없음"
+
+
+def approve_job(conn, job_id, request_tag):
+    """한 트랜잭션: 권리 확인 → 조건부 상태 전이 → job_events. 실패하면 전부 되돌린다.
+    approvals 는 기획 승인(엔진 기획승인.json) 감사 사본이라 영상 승인은 넣지 않는다(0001·ADR-004)."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute(
+            "SELECT j.channel_id, s.rights_status FROM jobs j"
+            " LEFT JOIN sources s ON s.id = j.source_id WHERE j.id = ?",
+            (job_id,),
+        ).fetchone()
+        if row is None:
+            raise ApproveRejected(404, MSG_MISSING)
+        if row["rights_status"] not in APPROVABLE_RIGHTS:
+            raise ApproveRejected(409, MSG_RIGHTS)
+        cur = conn.execute(
+            "UPDATE jobs SET state = 'approved', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+            " WHERE id = ? AND state = 'review' AND queue_state IS NOT 'running'",
+            (job_id,),
+        )
+        if cur.rowcount != 1:
+            raise ApproveRejected(409, MSG_STATE)
+        channel = row["channel_id"][-6:] if row["channel_id"] else "없음"
+        conn.execute(
+            "INSERT INTO job_events(job_id, from_state, to_state, message) VALUES (?, 'review', 'approved', ?)",
+            (job_id, f"{VIDEO_APPROVAL_PREFIX} · 채널 {channel} · 요청 {request_tag}"),
+        )
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
+@router.post("/inbox/{job_id}/approve", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def inbox_approve(request: Request, job_id: int, db_path=Depends(get_db_path)):
+    try:
+        conn = db.connect_rw(db_path)
+        try:
+            approve_job(conn, job_id, _request_tag(request))
+        finally:
+            conn.close()
+    except ApproveRejected as exc:
+        # 거부 응답은 카드를 고르지 않는다(job=None): 없는 id·다른 탭 카드가 엉뚱하게 선택되지 않게.
+        return _inbox_response(request, db_path, "pending", None, notice=exc.message, status_code=exc.status_code)
+    except (db.DBUnavailable, sqlite3.Error) as exc:
+        logger.warning("영상 승인 실패: %s", exc)
+        return _inbox_response(request, db_path, "pending", None,
+                               notice="승인을 저장하지 못했습니다. DB 연결을 확인하세요.", status_code=503)
+    return RedirectResponse("/inbox", status_code=303)
 
 
 @router.get("/static/{name}")
