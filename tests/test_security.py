@@ -218,6 +218,12 @@ class PathLimitTest(unittest.TestCase):  # 7
             with self.subTest(bad=bad), self.assertRaises(SecurityError):
                 sec.resolve_within(bad, self.roots)
 
+    def test_reject_nt_device_prefix(self):
+        for bad in (r"\??\C:\Windows\win.ini", "/??/C:/Windows/win.ini", r"\??\UNC\attacker\share\x",
+                    r"\\?\UNC\attacker\share\x", "//?/C:/x", r"\\.\C:\x", "//./pipe/x", "\\\\.\\PhysicalDrive0"):
+            with self.subTest(bad=bad), self.assertRaisesRegex(SecurityError, "NT·장치"):
+                sec.resolve_within(bad, self.roots)
+
     @unittest.skipUnless(os.name == "nt", "드라이브 문자는 Windows 전용")
     def test_reject_other_drive(self):
         drive = Path(self.work).resolve().drive.upper()

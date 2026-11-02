@@ -194,6 +194,9 @@ def resolve_within(user_path, roots):
     if not raw or "\x00" in raw:
         raise SecurityError("빈 경로 또는 NUL 포함")
     # resolve()가 파일 시스템에 닿기 전에 막는다: UNC 접근은 NTLM 해시 유출 경로.
+    # NT 객체·장치 접두(\??\ · \\?\ · \\.\)도 같은 이유로 막는다(슬래시 혼용 포함).
+    if raw.replace("/", "\\").startswith(("\\??\\", "\\\\?\\", "\\\\.\\")):
+        raise SecurityError(f"NT·장치 경로 금지: {user_path!r}")
     if raw[:2] in ("\\\\", "//", "\\/", "/\\"):
         raise SecurityError(f"UNC·장치 경로 금지: {user_path!r}")
     resolved_roots = [Path(r).resolve() for r in roots]

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}만들기{% endblock %}
+{% block aside_label %}실행 안내{% endblock %}
+
+{% macro field_error(name) -%}
+{% if errors.get(name) %}<p class="label t-fail" id="err-{{ name }}">{{ icon('x') }} {{ errors[name] }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro described(name, hint=None) -%}
+{% set ids = [] %}{% if hint %}{% set _ = ids.append(hint) %}{% endif %}{% if errors.get(name) %}{% set _ = ids.append('err-' ~ name) %}{% endif %}
+{%- if ids %} aria-describedby="{{ ids|join(' ') }}"{% endif %}{% if errors.get(name) %} aria-invalid="true"{% endif %}
+{%- endmacro %}
+
+{% block main %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">만들기</h1>
+    <p class="page-sub muted">작품·원본·권리·구성을 정하면 작업을 만듭니다. 소재·컷표는 사람·스킬이 채운 뒤 진행합니다.</p>
+  </div>
+</div>
+
+{% if error %}
+<div class="banner" role="alert">
+  {{ icon('warn') }}
+  <span class="grow"><strong>DB에 연결하지 못했습니다.</strong> DB 연결을 확인한 뒤 다시 시도하세요.</span>
+  <a class="btn btn-secondary" href="/create">{{ icon('refresh') }}다시 시도</a>
+</div>
+{% endif %}
+{% if not roots_ready %}
+<div class="banner" role="alert">
+  {{ icon('warn') }}
+  <span class="grow"><strong>작업 루트가 설정되지 않았습니다.</strong> 서버 환경 변수 CINEDRAM_ROOTS를 설정해야 원본 경로를 받을 수 있습니다.</span>
+</div>
+{% endif %}
+{% if errors %}
+<div class="banner" role="alert" id="form-errors">
+  {{ icon('warn') }}
+  <span class="grow"><strong>입력을 확인하세요.</strong> {% if errors.get('_save') %}{{ errors['_save'] }}{% else %}표시된 항목 {{ errors|length }}개를 고친 뒤 다시 실행하세요.{% endif %}</span>
+</div>
+{% endif %}
+
+<ol class="stepper" aria-label="만들기 단계">
+  <li class="now" aria-current="step"><span class="n">1</span><span class="t">작품/원본</span></li>
+  <li><span class="n">2</span><span class="t">권리</span></li>
+  <li><span class="n">3</span><span class="t">구성</span></li>
+  <li><span class="n">4</span><span class="t">실행</span></li>
+</ol>
+
+<form method="post" action="/create" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="grid grid-2">
+    <section class="card stack" aria-labelledby="s-work">
+      <h2 id="s-work" class="card-title">1. 작품/원본</h2>
+      <label class="field"><span class="label">작품명</span>
+        <input class="input" type="text" name="work_title" list="work-list" maxlength="500" autocomplete="off"
+               value="{{ form.work_title }}"{{ described('work_title', 'hint-work') }}>
+        <span class="hint" id="hint-work">이미 있는 작품명과 같으면 그 작품에 원본을 더합니다.</span>
+      </label>
+      <datalist id="work-list">{% for w in works %}<option value="{{ w }}">{% endfor %}</datalist>
+      {{ field_error('work_title') }}
+      <label class="field"><span class="label">회차 <span class="muted">(선택)</span></span>
+        <input class="input num" type="text" name="episode" inputmode="numeric" pattern="[0-9]*" maxlength="5"
+               value="{{ form.episode }}"{{ described('episode') }}>
+      </label>
+      {{ field_error('episode') }}
+      <label class="field"><span class="label">원본 영상 경로</span>
+        <input class="input" type="text" name="video_path" autocomplete="off" spellcheck="false"
+               value="{{ form.video_path }}"{{ described('video_path', 'hint-path') }}>
+        <span class="hint" id="hint-path">작업 루트 안의 파일만. 상대 경로는 첫 작업 루트 기준입니다.</span>
+      </label>
+      {{ field_error('video_path') }}
+      <label class="field"><span class="label">자막(SRT) 경로</span>
+        <input class="input" type="text" name="srt_path" autocomplete="off" spellcheck="false"
+               value="{{ form.srt_path }}"{{ described('srt_path', 'hint-path') }}>
+      </label>
+      {{ field_error('srt_path') }}
+    </section>
+
+    <section class="card stack" aria-labelledby="s-rights">
+      <h2 id="s-rights" class="card-title">2. 권리 상태</h2>
+      <div class="stack" role="radiogroup" aria-labelledby="s-rights"{{ described('rights_status', 'hint-rights') }}>
+        {%- for value, label, note in rights %}
+        <label class="opt pick"><input type="radio" name="rights_status" value="{{ value }}"{% if form.rights_status == value %} checked{% endif %}><span class="radio-dot"></span><span class="grow"><strong>{{ label }}</strong><br><span class="label muted">{{ note }}</span></span>
+          {%- if value == 'unverified' %}<span class="badge b-rights">{{ icon('shield') }}권리 미확인</span>{% endif %}</label>
+        {%- endfor %}
+      </div>
+      <p class="label muted" id="hint-rights">사람이 직접 고릅니다. 미확인 원본은 업로드할 수 없습니다.</p>
+      {{ field_error('rights_status') }}
+    </section>
+
+    <section class="card stack span-all" aria-labelledby="s-comp">
+      <h2 id="s-comp" class="card-title">3. 구성</h2>
+      <div class="grid grid-2" role="radiogroup" aria-labelledby="s-comp"{{ described('comp') }}>
+        {%- for c in comps %}
+        <label class="opt pick"{% if c.disabled %} title="초안 규칙 — 준비 중"{% endif %}><input type="radio" name="comp" value="{{ c.id }}"{% if c.disabled %} disabled{% elif form.comp == c.id %} checked{% endif %}><span class="radio-dot"></span><span class="grow"><strong>{{ c.name }}</strong><br><span class="label muted">{{ c.id }}.md{% if c.disabled %} · 준비 중{% endif %}</span></span></label>
+        {%- endfor %}
+      </div>
+      {{ field_error('comp') }}
+    </section>
+
+    <section class="card stack span-all" aria-labelledby="s-run">
+      <h2 id="s-run" class="card-title">4. 실행</h2>
+      <button class="btn btn-strong btn-block" type="submit"{% if not roots_ready or error %} disabled{% endif %}>{{ icon('play') }}작업 만들기</button>
+      <p class="label muted">작업은 대기(컷표 작성 대기)로 들어가 제작 현황에 보입니다. 기획 승인·업로드는 사람만 합니다.</p>
+    </section>
+  </div>
+</form>
+{% endblock %}
+
+{% block aside %}
+<h2 class="card-title">실행 뒤 흐름</h2>
+<ol class="stack label">
+  <li>작업이 제작 현황에 대기로 추가됩니다.</li>
+  <li>소재·제목·컷표는 사람·스킬이 작성합니다.</li>
+  <li>엔진 점검(check) 뒤 기획 승인은 사람만 합니다.</li>
+</ol>
+{% endblock %}
