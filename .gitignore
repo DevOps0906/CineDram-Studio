@@ -27,3 +27,10 @@ __pycache__/
 
 # Python 가상환경
 .venv/
+
+# 로컬 DB·워커 산출물
+*.db
+*.db-wal
+*.db-shm
+*.worker.lock
+worker-logs/
