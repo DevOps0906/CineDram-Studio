@@ -13,3 +13,10 @@
 | 폴더 감시 | 원본 폴더 | `need_source → topic` 이벤트 | `원본/<작품>/E01.mp4+srt` 규칙 |
 
 승인 범위(`shortsflow.py approve`): `기획승인.json` 에 `컷표.json` 해시(`plan_hash`)와 `tts_clips.json` 실측 길이 해시(`tts_hash`, 파일 없으면 고정 값)를 함께 기록한다. render·handoff·delegate 는 둘 다 현재와 같을 때만 진행하고, `tts_hash` 없는 예전 승인 기록은 재승인을 요구한다(P0-2). 순서: tts-measure → recalc → check → approve.
+
+자동 검수(`check`·`recalc`, `review_voice`, docs/13 §10): 원본 SRT 대사 구간과 나레이션 음성 구간을 소리 기준으로 본다(실제 오디오 분석 아님).
+- C5-9 error: 소리 구간보다 먼저 뜨는 자막.
+- P8-3 error: 대사 컷 열기 0.1초·닫기 0.2초 여유 부족, 이웃 줄 간격 0.3초 미만이면 중점 여유. 컷이 대사 중간을 자르면 끝음절 잘림(마지막 컷은 C6-1).
+- C3-3 error: 후킹 컷 첫 대사가 컷 시작 0.1초(P8-3 열기 여유) 넘어서 시작.
+- `meta.srt_kind`: `"manual"`(사람이 준 SRT) | `"auto"`(자동 받아쓰기). P8-2: `"auto"` 면 `편집지시서_표.md` 머리에 "자동 받아쓰기 SRT — 컷 경계 ±0.5초 확인 필요".
+- 음량·검은 화면은 규칙 ID가 없어 미구현.

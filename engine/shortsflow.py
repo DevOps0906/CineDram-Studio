@@ -30,6 +30,8 @@ DROP_FRAG = 0.3     # C5-11
 LINE_CHARS = 14     # 기준표
 ORIG_GAIN = 0.15    # A10-8
 LEN_MIN, LEN_MAX = 20.0, 59.0   # C7-1
+OPEN_PAD, CLOSE_PAD, NEIGHBOR_GAP = 0.1, 0.2, 0.3   # P8-3 대사 컷 열기·닫기 여유, 이웃 줄 간격
+AUTO_SRT_NOTE = "자동 받아쓰기 SRT — 컷 경계 ±0.5초 확인 필요"   # P8-2
 HERE = Path(__file__).resolve().parent
 
 
@@ -300,6 +302,53 @@ def check(plan, resolved, subs, issues=None, max_narr_pct=35.0):
     return iss
 
 
+def review_voice(resolved, subs, src_lines):
+    """docs/13 §10 자동 검수 — 원본 SRT(대사 소리)와 나레이션 음성 구간을 기준으로 본다.
+
+    C5-9 자막이 소리보다 먼저 뜨지 않나 · P8-3/C6-1 대사 컷 열기·닫기 여유와 끝음절 잘림 · C3-3 후킹 앞 무음.
+    """
+    iss, eps = [], 1e-3
+    lines = sorted(src_lines)
+    voice = []   # 타임라인 위 소리 구간
+    for r in resolved:
+        T = r["tl_start"]
+        if r["kind"] == "narration":
+            voice.append((T, T + r["voice_sec"]))
+            continue
+        a, b, no = r["src_start"], r["src_end"], r["no"]
+        inner = [ln for ln in lines if ln[0] < b and ln[1] > a]
+        voice += [(max(s, a) - a + T, min(e, b) - a + T) for s, e, _ in inner]
+        if not inner:
+            if r is resolved[0]:
+                iss.append(("error", "C3-3", f"컷 {no}: 후킹 컷에 원본 SRT 대사가 없다 — 첫 소리(0초)를 확인할 수 없다"))
+            continue
+        first = min(inner, key=lambda ln: ln[0])
+        last = max(inner, key=lambda ln: ln[1])
+        if first[0] < a - eps:
+            iss.append(("error", "P8-3", f"컷 {no}: 시작 {fmt_ts(a)} 이 대사 «{first[2][:12]}» 중간을 자른다"))
+        else:
+            prev = [ln[1] for ln in lines if ln[1] <= first[0] + eps and ln is not first]
+            gap = first[0] - max(prev) if prev else NEIGHBOR_GAP
+            need = OPEN_PAD if gap >= NEIGHBOR_GAP else gap / 2
+            if first[0] - a < need - eps:
+                iss.append(("error", "P8-3", f"컷 {no}: 첫 음절 앞 여유 {first[0] - a:.2f}초 < {need:.2f}초"))
+        if last[1] > b + eps:
+            rule = "C6-1" if r is resolved[-1] else "P8-3"
+            iss.append(("error", rule, f"컷 {no}: 끝 {fmt_ts(b)} 이 대사 «{last[2][:12]}» 끝음절 전에 닫힌다(잘림)"))
+        else:
+            nxt = [ln[0] for ln in lines if ln[0] >= last[1] - eps and ln is not last]
+            gap = min(nxt) - last[1] if nxt else NEIGHBOR_GAP
+            need = CLOSE_PAD if gap >= NEIGHBOR_GAP else gap / 2
+            if b - last[1] < need - eps:
+                iss.append(("error", "P8-3", f"컷 {no}: 끝음절 뒤 여유 {b - last[1]:.2f}초 < {need:.2f}초"))
+        if r is resolved[0] and first[0] - a > OPEN_PAD + eps:
+            iss.append(("error", "C3-3", f"컷 {no}: 후킹 첫 소리가 {first[0] - a:.2f}초에 시작 — 앞 무음(첫 소리는 0초)"))
+    for i, (s, e, tx) in enumerate(subs, 1):
+        if not any(vs - eps <= s < ve for vs, ve in voice):
+            iss.append(("error", "C5-9", f"자막 {i}: {s:.2f}초 — 소리보다 먼저 뜬다 «{tx[:12]}»"))
+    return iss
+
+
 def print_issues(iss):
     if not iss:
         print("✓ 문제 없음")
@@ -410,12 +459,14 @@ def do_recalc(plan, write=True):
         iss.append(("error", "P8-1", "원본 SRT 가 없다 — 자막 시각의 근거가 없다"))
     subs = build_subs(plan, resolved, lines)
     iss = check(plan, resolved, subs, iss, plan["meta"].get("max_narration_pct", 35.0))
+    iss += review_voice(resolved, subs, lines)
     if write:
         d = plan["_dir"]
         write_srt(d / "자막.srt", subs)
         clean = [{k: v for k, v in r.items() if not k.startswith("_")} for r in resolved]
         (d / "컷표.resolved.json").write_text(json.dumps(clean, ensure_ascii=False, indent=1), encoding="utf-8")
-        rows = ["| 번호 | 종류 | 원본 시작 | 원본 끝 | 타임라인 | 길이 | 들리는 것 | 얼굴(x,y,h) | 메모 |", "|---|---|---|---|---|---|---|---|---|"]
+        head = [f"> {AUTO_SRT_NOTE} (P8-2)", ""] if plan["meta"].get("srt_kind") == "auto" else []
+        rows = head + ["| 번호 | 종류 | 원본 시작 | 원본 끝 | 타임라인 | 길이 | 들리는 것 | 얼굴(x,y,h) | 메모 |", "|---|---|---|---|---|---|---|---|---|"]
         for r in resolved:
             heard = f"[나레이션 {r['beat']}] {r['tts_text']}" if r["kind"] == "narration" else "(원음)"
             memo = r.get("note", "")
@@ -838,8 +889,9 @@ def cmd_delegate(plan, out_dir, template="topbottom"):
         rows.append(f"| {r['no']} | {fmt_ts(r['src_start'])}~{fmt_ts(r['src_end'])} | {r['tl_start']:.1f}~{r['tl_end']:.1f} | {r['dur']:.1f}초 | {what} | {face} |")
     shutil.copy(plan["_dir"] / "자막.srt", out / "자막.srt")
     title = " / ".join(plan["meta"]["title"])
+    srt_note = f"\n> {AUTO_SRT_NOTE} (P8-2)\n" if plan["meta"].get("srt_kind") == "auto" else ""
     prompt = f"""# 편집 위임 프롬프트 — {plan['meta'].get('work', '')} {plan['meta'].get('episode', '')}
-
+{srt_note}
 아래 지시서를 **그대로** 실행해 9:16 쇼츠 타임라인을 만들어 주세요. 판단은 이미 끝났고, 당신은 실행만 합니다.
 
 ## 목표

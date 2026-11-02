@@ -44,7 +44,7 @@ class RecalcValues(ProjectCase):
         subs = sf.parse_srt(self.dir / "자막.srt")
         self.assertEqual(len(subs), 8)
         self.assertEqual([round(s, 3) for s, _, _ in subs],
-                         [0.5, 3.0, 4.286, 6.557, 11.057, 12.343, 14.328, 20.328])
+                         [0.1, 3.0, 4.286, 6.557, 11.057, 12.343, 14.328, 20.328])
         texts = [t for _, _, t in subs]
         self.assertEqual(texts[1], "신입 사원이 첫 출근날")
         self.assertEqual(texts[-1], "오늘부터 대표입니다")
