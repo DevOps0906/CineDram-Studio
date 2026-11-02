@@ -1,0 +1,15 @@
+/* app.css — 서버 렌더 화면 보정(시안 _app.css 위에 얹는다). 색·크기는 _tokens.css 변수만. */
+a.pill { display: inline-flex; align-items: center; text-decoration: none; }
+.pill[aria-current="page"] { background: var(--color-primary); color: var(--color-primary-fg); }
+.card-head a { color: inherit; text-decoration: none; }
+.card-head a:hover { text-decoration: underline; }
+.tabs a[aria-disabled="true"] { color: var(--color-disabled-fg); }
+[hidden] { display: none !important; }
+.banner { margin-bottom: calc(var(--spacing) * 4); }
+/* 폴링 실패: 흐리게 하지 않고 배너 + 테두리로 "마지막으로 받은 내용"임을 표시 */
+#jobs[data-stale] { outline: 2px dashed var(--color-danger); outline-offset: calc(var(--spacing) * 2); border-radius: var(--radius-card); }
+.narrow-detail { border-top: 1px solid var(--color-border); padding-top: calc(var(--spacing) * 3); display: flex; flex-direction: column; gap: calc(var(--spacing) * 3); }
+/* 다크 모드 아이콘: 현재 테마의 반대 동작을 보인다 */
+.theme-sun { display: none; }
+.dark .theme-sun { display: inline; }
+.dark .theme-moon { display: none; }

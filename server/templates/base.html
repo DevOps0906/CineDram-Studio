@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{# CSRF 토큰 자리(다음 라운드 폼에서 hidden 입력으로 쓴다). 값은 미들웨어가 request.state 에 둔다. #}
+<meta name="csrf-token" content="{{ csrf_token }}">
+<title>{% block title %}{% endblock %} — CineDram Studio</title>
+{# 다크 모드 깜빡임 방지: 첫 페인트 전에 저장값(?dark·?light 시안 규약 우선)을 적용한다. 외부 요청 없음. #}
+<script>try{var q=location.search;if(/[?&]dark/.test(q)||(!/[?&]light/.test(q)&&localStorage.getItem('cd-theme')==='dark'))document.documentElement.classList.add('dark')}catch(e){}</script>
+<link rel="stylesheet" href="/static/_tokens.css">
+<link rel="stylesheet" href="/static/_app.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body data-page="{{ page }}">
+{%- set nav = [
+  ('홈', [('dashboard', None, 'home', '홈')]),
+  ('제작', [('oneclick', None, 'zap', '원클릭 제작'), ('create', None, 'plus', '만들기'), ('link', None, 'link', '링크로 만들기'),
+            ('queue', None, 'layers', '대기 큐'), ('status', '/status', 'activity', '제작 현황')]),
+  ('검수', [('inbox', '/inbox', 'inbox', '승인함')]),
+  ('소재', [('radar', None, 'radar', '레이더')]),
+  ('권리', [('risk', None, 'shield', '리스크 기록')]),
+  ('설정', [('channels', None, 'tv', '채널 관리'), ('settings', None, 'gear', '환경설정')]),
+] %}
+<div class="app">
+  <nav class="sidebar" id="main-nav" aria-label="주 메뉴">
+    <div class="brand">{{ icon('film') }} <span class="brand-text">CineDram Studio</span></div>
+    {%- for group, items in nav %}
+    {% if not loop.first %}<div class="nav-sep"></div>{% endif %}
+    {% if group != '홈' %}<span class="nav-group">{{ group }}</span>{% endif %}
+    {%- for id, href, ico, label in items %}
+    {%- if href %}
+    <a class="nav-item" href="{{ href }}" title="{{ label }}" data-poll-part="nav-{{ id }}"{% if id == page %} aria-current="page"{% endif %}>{{ icon(ico) }}<span class="nav-text">{{ label }}</span>
+      {%- if nav_counts and nav_counts.get(id) %}<span class="count{% if id == 'inbox' %} hot{% endif %}">{{ nav_counts[id] }}</span>{% endif %}</a>
+    {%- else %}
+    <a class="nav-item" aria-disabled="true" title="{{ label }} · 준비 중">{{ icon(ico) }}<span class="nav-text">{{ label }} · 준비 중</span></a>
+    {%- endif %}
+    {%- endfor %}
+    {%- endfor %}
+  </nav>
+
+  <div class="center">
+    <header class="topbar">
+      <button class="icon-btn only-tablet" type="button" data-act="menu" aria-controls="main-nav" aria-label="메뉴 펼치기" aria-expanded="false">{{ icon('menu') }}</button>
+      <span class="brand">{{ icon('film') }} CineDram</span><span class="spacer"></span>
+      <button class="icon-btn only-tablet" type="button" data-act="drawer" data-drawer-opener aria-controls="side-panel" aria-expanded="false">{{ icon('panel') }}<span class="label">{% block aside_label %}{% endblock %}</span></button>
+      <button class="icon-btn" type="button" data-act="theme" aria-pressed="false" aria-label="다크 모드">{{ icon('moon', 'theme-moon') }}{{ icon('sun', 'theme-sun') }}</button>
+    </header>
+    <main class="main">
+      {% block main %}{% endblock %}
+    </main>
+  </div>
+
+  <aside class="aside" id="side-panel" aria-label="{{ self.aside_label() }}">
+    <div class="only-tablet aside-close"><button class="icon-btn" type="button" data-act="drawer" aria-controls="side-panel" aria-label="닫기">{{ icon('close') }}</button></div>
+    <div class="aside-inner" data-poll-part="aside">
+      {% block aside %}{% endblock %}
+    </div>
+  </aside>
+  <div class="scrim" data-act="drawer"></div>
+
+  <nav class="tabs" aria-label="하단 탭">
+    <a aria-disabled="true" title="홈 · 준비 중">{{ icon('home') }}홈</a>
+    <a href="/status"{% if page == 'status' %} aria-current="page"{% endif %}>{{ icon('activity') }}제작 현황</a>
+    <a href="/inbox" data-poll-part="tab-inbox"{% if page == 'inbox' %} aria-current="page"{% endif %}>{{ icon('inbox') }}승인함
+      {%- if nav_counts and nav_counts.inbox %}<span class="count hot">{{ nav_counts.inbox }}</span>{% endif %}</a>
+  </nav>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}승인함{% endblock %}
+{% block aside_label %}승인 로그{% endblock %}
+
+{% block main %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">승인함</h1>
+    <p class="page-sub label muted">승인한 카드만 업로드 예약이 열립니다. 권리 미확인 카드는 보관만 할 수 있습니다.</p>
+  </div>
+  {% if tab_counts %}
+  <nav class="pills" aria-label="필터">
+    <a class="pill" href="/inbox?tab=pending"{% if tab == 'pending' %} aria-current="page"{% endif %}>승인 대기 {{ tab_counts.pending }}</a>
+    <a class="pill" href="/inbox?tab=approved"{% if tab == 'approved' %} aria-current="page"{% endif %}>승인됨 {{ tab_counts.approved }}</a>
+  </nav>
+  {% endif %}
+</div>
+
+{% if error %}
+<div class="banner" role="alert">
+  {{ icon('warn') }}
+  <span class="grow"><strong>승인함을 불러오지 못했습니다.</strong> DB 연결을 확인한 뒤 다시 시도하세요.</span>
+  <a class="btn btn-secondary" href="/inbox">{{ icon('refresh') }}다시 시도</a>
+</div>
+{% elif not cards %}
+<div class="empty">
+  {{ icon('inbox') }}
+  <p class="card-title">{% if tab == 'pending' %}승인 대기 카드가 없습니다{% else %}승인한 카드가 없습니다{% endif %}</p>
+  <p class="muted">검수까지 끝난 영상이 여기에 모입니다.</p>
+  <a class="btn btn-secondary" href="/status">제작 현황 보기</a>
+</div>
+{% else %}
+<div class="inbox">
+  <div class="stack inbox-list">
+    {% for c in cards %}
+    {% set unverified = c.unverified %}
+    {% set is_sel = selected and selected.id == c.id %}
+    <article class="card{% if is_sel %} selected{% endif %}" id="card-{{ c.id }}" aria-label="{{ c.name }} 승인 카드{% if unverified %} — 권리 미확인{% endif %}">
+      <div class="card-head">
+        {%- if unverified %}<span class="badge b-rights">{{ icon('shield') }}권리 미확인</span>{% endif %}
+        {%- if tab == 'approved' %}<span class="badge b-ok">{{ icon('circlecheck') }}승인됨</span>{% endif %}
+        {%- for comp in c.comps %}<span class="badge b-comp">{{ comp }}</span>{% endfor -%}
+        <a class="label" href="/inbox?tab={{ tab }}&amp;job={{ c.id }}#card-{{ c.id }}"{% if is_sel %} aria-current="true"{% endif %}>{{ c.name }}</a>
+        <span class="end label muted num">{{ c.elapsed }}</span>
+      </div>
+      <h2 class="card-title clamp-2">{{ c.title or '제목 없음' }}</h2>
+      {%- if unverified %}
+      <p class="label muted">권리(rights_status)가 확인되기 전에는 업로드 경로가 열리지 않습니다 (R9-1).</p>
+      {%- endif %}
+      {%- for a in c.approvals %}
+      <p class="label muted num">승인: {{ a.by }} · {{ a.at }} · 권리 {{ c.rights or '미확인' }}</p>
+      {%- endfor %}
+      {%- if tab == 'approved' and c.channel %}
+      <p class="label num">{{ icon('tv') }} 업로드 대상 채널 ID {{ c.channel }}</p>
+      {%- endif %}
+      {%- if is_sel and picked %}
+      {# 모바일(~767)은 상세 열이 없어 고른 카드 안에 상세를 펼친다. #}
+      <div class="only-mobile narrow-detail" aria-label="선택한 카드 상세">
+        <dl class="kv num">
+          <dt>상태</dt><dd>{{ c.state_label }}</dd>
+          <dt>권리</dt><dd>{{ c.rights or '미확인' }}</dd>
+          <dt>렌더</dt><dd>{{ c.render_count or 0 }}회</dd>
+          <dt>채널</dt><dd>{% if c.channel %}ID {{ c.channel }}{% else %}지정 안 됨{% endif %}</dd>
+        </dl>
+        {%- if events %}
+        <ul class="log num">{% for e in events %}<li{% if e.failed %} class="t-fail"{% endif %}><span>{{ e.label }}{% if e.message %} · {{ e.message }}{% endif %}</span><span>{{ e.at }}</span></li>{% endfor %}</ul>
+        {%- endif %}
+      </div>
+      {%- endif %}
+    </article>
+    {% endfor %}
+  </div>
+
+  {% if selected %}
+  <section class="card inbox-detail" aria-label="선택한 카드 상세">
+    <div class="card-head">
+      {%- if selected.badge %}{% set b = selected.badge %}<span class="badge {{ b[1] }}">{{ icon(b[2]) }}{{ b[0] }}</span>{% endif -%}
+      <span class="label">{{ selected.name }}</span>
+    </div>
+    <div class="video"><span>영상 자리 (9:16)<br><span class="label">{% if output %}렌더 v{{ output.ver }} · {{ output.name }}{% else %}렌더 산출물 없음{% endif %}</span></span></div>
+    <dl class="kv num">
+      <dt>상태</dt><dd>{{ selected.state_label }}</dd>
+      <dt>권리</dt><dd>{{ selected.rights or '미확인' }}</dd>
+      <dt>렌더</dt><dd>{{ selected.render_count or 0 }}회</dd>
+    </dl>
+    <div class="box"><span class="label">업로드 대상 채널</span>
+      <strong class="num">{{ icon('tv') }} {% if selected.channel %}ID {{ selected.channel }}{% else %}지정 안 됨{% endif %}</strong>
+      <p class="label muted">[승인]하면 승인 기록에 이 채널 ID가 함께 남습니다.</p></div>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block aside %}
+<div class="aside-head"><h2 class="section-title">승인 로그</h2>{% if selected %}<span class="label muted">{{ selected.name }}</span>{% endif %}</div>
+{% if selected %}
+<p class="label muted">점검 결과(공통 28항)는 아직 DB에 기록되지 않아 표시하지 않습니다.</p>
+<h3 class="label muted">상태 기록</h3>
+{% if events %}
+<ul class="log num">
+  {% for e in events %}
+  <li{% if e.failed %} class="t-fail"{% endif %}><span>{{ e.label }}{% if e.message %} · {{ e.message }}{% endif %}</span><span>{{ e.at }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="label muted">기록이 없습니다.</p>
+{% endif %}
+{% if selected.approvals %}
+<h3 class="label muted">승인 기록</h3>
+<ul class="log num">{% for a in selected.approvals %}<li><span>승인 · {{ a.by }}</span><span>{{ a.at }}</span></li>{% endfor %}</ul>
+{% endif %}
+{% else %}
+<p class="label muted">{% if error %}불러오지 못했습니다.{% else %}선택한 카드가 없습니다.{% endif %}</p>
+{% endif %}
+{% endblock %}

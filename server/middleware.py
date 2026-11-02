@@ -2,14 +2,15 @@
 
 검사 본체는 server/security.py 순수 함수이고, 여기서는 요청마다 순서대로 부르기만 한다.
 1 scope server/client 루프백·포트 → 2 Host → 3 비GET은 POST+Origin
+→ 4 CSRF 쿠키 검사·재발급(scope["state"]["csrf_token"]; 검증은 csrf.require_csrf) + 본문 크기 상한
 → 5 응답 본문 키 검사(스트림·바이너리 명시 목록만 제외) + CORS 헤더 금지.
 거부는 403 고정 문구, 처리 중 예외는 500 고정 문구. 로그는 mask_secrets를 거친다.
-CSRF(4)는 개발 2단계에서 붙인다.
 """
 import logging
 import traceback
 from collections.abc import Mapping
 
+from server.csrf import COOKIE_CONFLICT, MAX_BODY_BYTES, TOO_LARGE, BodyTooLarge, CookieConflict, ensure_token
 from server.security import (
     SecurityError,
     check_host,
@@ -33,6 +34,8 @@ UNCHECKED_CONTENT_TYPES = (
 )
 FORBIDDEN_BODY = "요청이 거부되었습니다.".encode("utf-8")
 ERROR_BODY = "서버 오류가 발생했습니다.".encode("utf-8")
+TOO_LARGE_BODY = TOO_LARGE.encode("utf-8")
+COOKIE_CONFLICT_BODY = COOKIE_CONFLICT.encode("utf-8")
 
 
 def _header(scope, name):
@@ -91,10 +94,27 @@ class MaskSecretsFilter(logging.Filter):
         return True
 
 
+def _limit_body(receive, limit):
+    """본문을 limit 바이트까지만 받는다. 넘으면 BodyTooLarge(413, Content-Length 없는 청크 전송 대비)."""
+    total = 0
+
+    async def limited():
+        nonlocal total
+        message = await receive()
+        if message["type"] == "http.request":
+            total += len(message.get("body", b""))
+            if total > limit:
+                raise BodyTooLarge()
+        return message
+
+    return limited
+
+
 class LocalSecurityMiddleware:
-    def __init__(self, app, port):
+    def __init__(self, app, port, csrf_secret):
         self.app = app
         self.port = port
+        self.csrf_secret = csrf_secret
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "lifespan":
@@ -113,6 +133,20 @@ class LocalSecurityMiddleware:
             await _send_plain(send, 403, FORBIDDEN_BODY)
             return
 
+        length = _header(scope, b"content-length")
+        if length is not None and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+            await _send_plain(send, 413, TOO_LARGE_BODY)
+            return
+        receive = _limit_body(receive, MAX_BODY_BYTES)
+
+        try:
+            token, set_cookies = ensure_token(self.csrf_secret, scope.get("headers", []))
+        except CookieConflict as exc:
+            logger.warning("쿠키 충돌 거부: %s", mask_secrets(str(exc)))
+            await _send_plain(send, 403, COOKIE_CONFLICT_BODY)
+            return
+        scope.setdefault("state", {})["csrf_token"] = token
+
         start = None
         chunks = []
         checked = False
@@ -122,6 +156,8 @@ class LocalSecurityMiddleware:
             nonlocal start, checked, started
             if message["type"] == "http.response.start":
                 check_no_cors(name.decode("latin-1") for name, _ in message.get("headers", []))
+                if set_cookies:
+                    message = {**message, "headers": [*message.get("headers", []), *set_cookies]}
                 checked = _is_checked(message.get("headers", []))
                 if checked:
                     start = message
@@ -143,6 +179,9 @@ class LocalSecurityMiddleware:
 
         try:
             await self.app(scope, receive, guarded_send)
+        except BodyTooLarge:  # 앱 예외 처리기 밖에서 난 경우
+            if not started:
+                await _send_plain(send, 413, TOO_LARGE_BODY)
         except SecurityError as exc:
             logger.warning("응답 거부: %s", mask_secrets(str(exc)))
             if not started:

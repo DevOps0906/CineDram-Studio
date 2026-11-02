@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}제작 현황{% endblock %}
+{% block aside_label %}작업 상세{% endblock %}
+
+{% macro event_log(events) -%}
+<ul class="log num">{% for e in events %}<li{% if e.failed %} class="t-fail"{% endif %}><span>{{ e.label }}{% if e.message %} · {{ e.message }}{% endif %}</span><span>{{ e.at }}</span></li>{% endfor %}</ul>
+{%- endmacro %}
+
+{% macro job_kv(j) -%}
+<dl class="kv num">
+  <dt>상태</dt><dd>{{ j.state_label }}</dd>
+  <dt>시작</dt><dd>{{ j.started }}</dd>
+  <dt>경과</dt><dd>{{ j.elapsed }}</dd>
+  <dt>렌더</dt><dd>{{ j.render_count or 0 }}회</dd>
+</dl>
+{%- endmacro %}
+
+{% macro job_card(j) -%}
+{% set is_sel = selected and selected.id == j.id %}
+<article class="card{% if is_sel %} selected{% endif %}" id="job-{{ j.id }}" data-job="{{ j.id }}">
+  <div class="card-head">
+    {%- for c in j.comps %}<span class="badge b-comp">{{ c }}</span>{% endfor -%}
+    <strong><a href="?job={{ j.id }}#job-{{ j.id }}"{% if is_sel %} aria-current="true"{% endif %}>{{ j.name }}</a></strong>
+    <span class="end label muted num">{{ icon('clock') }} {{ j.elapsed }}</span>
+  </div>
+  <ol class="progress" aria-label="진행 단계">
+    {%- for s in j.steps %}
+    <li{% if s.kind %} class="{{ s.kind }}"{% endif %}{% if s.kind == 'now' %} aria-current="step"{% endif %}><span class="step-name">{% if s.kind == 'done' %}{{ icon('check') }}{% endif %}{{ s.name }}</span></li>
+    {%- endfor %}
+  </ol>
+  <div class="row">
+    {%- if j.badge %}{% set b = j.badge %}<span class="badge {{ b[1] }}">{{ icon(b[2]) }}{{ b[0] }}</span>{% endif %}
+    {%- if j.state == 'failed' %}<span class="label t-fail">{{ icon('x') }} 실패 — 로그 확인</span>{% endif %}
+    {%- if j.badge and j.badge[1] == 'b-rights' %}<span class="label muted">업로드 경로 닫힘 (R9-1)</span>
+    {%- elif j.state == 'need_source' %}<span class="label muted">원본 들어오면 자동 제작</span>
+    {%- elif j.state == 'review' %}<a class="btn btn-link-sm" href="/inbox?job={{ j.id }}#card-{{ j.id }}">승인함에서 보기</a>
+    {%- elif j.render_count %}<span class="label muted num">렌더 {{ j.render_count }}회</span>{% endif %}
+  </div>
+  {%- if is_sel and picked %}
+  {# 모바일(~767)은 우측 열이 없어 고른 카드 안에 상세를 펼친다. #}
+  <div class="only-mobile narrow-detail" aria-label="작업 상세">{{ job_kv(j) }}</div>
+  {%- endif %}
+  {%- if j.events %}
+  <details><summary>{{ icon('chevron') }}로그 자세히</summary>
+    {{ event_log(j.events) }}
+  </details>
+  {%- endif %}
+</article>
+{%- endmacro %}
+
+{% block main %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">제작 현황</h1>
+    <p class="page-sub label muted" data-poll-note>3초마다 갱신</p>
+    <p class="sr-only" aria-live="polite" data-poll-announce></p>
+  </div>
+  {% if not error %}
+  <div class="pills" role="group" aria-label="묶음" data-poll-part="pills">
+    <a class="pill" href="#group-active">진행 중 {{ active|length }}</a>
+    <a class="pill" href="#group-review">승인 대기 {{ review|length }}</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="banner" role="alert" data-poll-error{% if not error %} hidden{% endif %}>
+  {{ icon('warn') }}
+  <span class="grow"><strong>현황을 불러오지 못했습니다.</strong> DB 연결을 확인한 뒤 다시 시도하세요.{% if not error %} 아래는 마지막으로 받은 내용입니다.{% endif %}</span>
+  <a class="btn btn-secondary" href="/status">{{ icon('refresh') }}다시 시도</a>
+</div>
+
+{% if not error %}
+<div id="jobs" data-poll="3000"
+     data-sig="{% for j in active + review %}{{ j.id }}:{{ j.state }};{% endfor %}"
+     data-summary="진행 중 {{ active|length }}건, 승인 대기 {{ review|length }}건">
+  {% if not active and not review %}
+  <div class="empty">
+    {{ icon('activity') }}
+    <p class="card-title">진행 중인 제작이 없습니다</p>
+    <p class="muted">만들기에서 작품과 구성을 고르면 여기에 단계별로 표시됩니다.</p>
+  </div>
+  {% else %}
+  <div class="stack">
+    <h2 class="label muted" id="group-active">진행 중 <span class="count">{{ active|length }}</span></h2>
+    {% for j in active %}{{ job_card(j) }}{% else %}<p class="label muted">진행 중인 작업이 없습니다.</p>{% endfor %}
+    <h2 class="label muted" id="group-review">승인 대기 <span class="count hot">{{ review|length }}</span></h2>
+    {% for j in review %}{{ job_card(j) }}{% else %}<p class="label muted">승인 대기 작업이 없습니다.</p>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block aside %}
+<div class="aside-head"><h2 class="section-title">작업 상세</h2>{% if selected %}{% for c in selected.comps %}<span class="badge b-comp">{{ c }}</span>{% endfor %}{% endif %}</div>
+{% if selected %}
+<p><strong>{{ selected.name }}</strong>{% if selected.title %}<br><span class="label muted">{{ selected.title }}</span>{% endif %}</p>
+{{ job_kv(selected) }}
+<h3 class="label muted">단계 로그</h3>
+{% if events %}{{ event_log(events) }}{% else %}<p class="label muted">기록된 단계가 아직 없습니다.</p>{% endif %}
+{% else %}
+<p class="label muted">{% if error %}불러오지 못했습니다.{% else %}선택할 작업이 없습니다.{% endif %}</p>
+{% endif %}
+{% endblock %}
