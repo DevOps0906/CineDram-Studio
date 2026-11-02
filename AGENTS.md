@@ -5,6 +5,7 @@
 
 ## 명령 (기준 파일 `컷표.json`)
 `python engine/shortsflow.py {check|tts-plan|tts-measure|recalc|approve|render|handoff|delegate} 컷표.json` — 테스트: `q python -m unittest discover -s tests`(린터 없음). DB: `python db/migrate.py <db경로>`. 긴 출력은 `q <명령>`.
+설치: `pip install --require-hashes -r requirements.txt -r requirements-dev.txt`(잠금 재생성은 각 `.in` 머리 주석). 환경 변수: `CINEDRAM_ROOTS`(작업 루트, `os.pathsep` 구분 절대 경로, 첫 값=기본) · `CINEDRAM_DB`(DB 경로).
 
 ## 절대 규칙 (위반 = 리뷰 🔴)
 - 업로드·`approve`는 사람만. 권리(`rights_status`) 미확인 소재는 업로드 차단. 남의 쇼츠는 분석 대상일 뿐 소스 아님.
