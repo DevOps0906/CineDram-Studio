@@ -284,7 +284,8 @@ def run_engine(cmd, plan, timeout, engine_script=ENGINE_SCRIPT, on_tick=None, ti
     """엔진 서브프로세스 실행 → (종료 코드 또는 None(시간 초과), 출력 문자열).
 
     Popen 실패(OSError)는 그대로 올린다. 실행 중 어떤 예외(Ctrl+C 포함)든 자식 트리를 죽이고 올린다.
-    on_tick(하트비트) 실패는 로그만 남기고 계속한다.
+    on_tick(하트비트) 실패는 로그만 남기고 계속한다. on_tick 이 False 를 돌려주면(임대 잃음 = 사람이 취소)
+    자식 트리를 죽이고 (None, 출력)을 돌려준다.
     """
     if cmd not in ALLOWED_COMMANDS:
         raise WorkerError(f"허용되지 않은 엔진 명령: {cmd}")
@@ -311,9 +312,14 @@ def run_engine(cmd, plan, timeout, engine_script=ENGINE_SCRIPT, on_tick=None, ti
                 pass
             if on_tick:
                 try:
-                    on_tick()
+                    held = on_tick()
                 except Exception as e:  # 하트비트 실패로 실행을 멈추지 않는다
                     log.warning("하트비트 실패(계속 실행): %s", mask_secrets(str(e)))
+                else:
+                    if held is False:  # 임대 확인 실패 = 사람이 취소 → 프로세스 트리 종료
+                        log.info("임대 잃음(취소): 프로세스 트리 종료")
+                        kill_tree(proc)
+                        return None, _drain(proc)
     except BaseException:
         kill_tree(proc)
         raise
@@ -338,11 +344,13 @@ def classify(returncode, output, cmd=None, error=None):
 
 
 def heartbeat(conn, job_id, worker_id, lease_seconds):
+    """임대를 늘린다. 임대가 아직 내 것이면 True, 아니면(사람이 취소 등) False."""
     with _Tx(conn):
-        conn.execute(
+        cur = conn.execute(
             f"UPDATE jobs SET heartbeat_at={NOW_SQL}, "
             f"lease_expires_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','+{int(lease_seconds)} seconds') "
             "WHERE id=? AND queue_state='running' AND lease_owner=?", (job_id, worker_id))
+    return cur.rowcount == 1
 
 
 def finish(conn, job, worker_id, returncode, output, error=None):
@@ -418,20 +426,40 @@ class Worker:
         job = claim(self.conn, self.worker_id, self.roots, self.llm_slots, self.lease_seconds)
         if job is None:
             return None
+        lease = {"lost": False}
+
+        def tick():
+            held = heartbeat(self.conn, job["id"], self.worker_id, self.lease_seconds)
+            if held is False:
+                lease["lost"] = True
+            return held
+
         try:
-            rc, out = run_engine(
-                job["cmd"], job["plan"], self.timeout, self.engine_script,
-                on_tick=lambda: heartbeat(self.conn, job["id"], self.worker_id, self.lease_seconds),
-                tick=self.heartbeat_seconds)
+            rc, out = run_engine(job["cmd"], job["plan"], self.timeout, self.engine_script,
+                                 on_tick=tick, tick=self.heartbeat_seconds)
         except OSError as e:  # Popen 실패(엔진·cwd 없음 등)
             rc, out = None, ""
-            finish(self.conn, job, self.worker_id, rc, out,
-                   error=f"엔진 실행 실패: {type(e).__name__}: {e}")
+            recorded = finish(self.conn, job, self.worker_id, rc, out,
+                              error=f"엔진 실행 실패: {type(e).__name__}: {e}")
         else:
             self._write_log(job, out)
-            finish(self.conn, job, self.worker_id, rc, out)
+            if lease["lost"]:  # 사람 취소: 시간 초과가 아니다. 결과를 기록하지 않는다
+                recorded = False
+                self._record_cancel_kill(job["id"])
+            else:
+                recorded = finish(self.conn, job, self.worker_id, rc, out)
+        if not recorded:
+            log.info("작업 %s: 임대 잃음/취소됨, 결과 버림", job["id"])
         job["returncode"] = rc
+        job["canceled"] = lease["lost"]
         return job
+
+    def _record_cancel_kill(self, job_id):
+        """취소로 트리를 끝냈음을 남긴다. 이미 finished(canceled) 행일 때만 이벤트만 추가한다."""
+        with _Tx(self.conn):
+            row = self.conn.execute("SELECT queue_state, state FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row == ("finished", "canceled"):
+                _event(self.conn, job_id, "finished", "finished", "워커: 취소 확인, 프로세스 트리 종료")
 
     def _write_log(self, job, output):
         self.log_dir.mkdir(parents=True, exist_ok=True)
