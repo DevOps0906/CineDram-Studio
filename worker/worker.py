@@ -142,11 +142,12 @@ def _short(text):
     return text if len(text) <= MAX_EVENT_TEXT else text[:MAX_EVENT_TEXT] + "…"
 
 
-def _event(conn, job_id, from_state, to_state, message=None, error=None):
+def _event(conn, job_id, from_state, to_state, message=None, error=None, render_count=None):
     """job_events 의 from/to 에는 queue_state 값을 쓴다(작업 state 전이는 message 에 함께 적는다)."""
     conn.execute(
-        "INSERT INTO job_events(job_id, from_state, to_state, message, error) VALUES (?, ?, ?, ?, ?)",
-        (job_id, from_state, to_state, _short(message) if message else None, _short(error) if error else None))
+        "INSERT INTO job_events(job_id, from_state, to_state, message, error, render_count) VALUES (?, ?, ?, ?, ?, ?)",
+        (job_id, from_state, to_state, _short(message) if message else None, _short(error) if error else None,
+         render_count))
 
 
 class _Tx:
@@ -238,15 +239,18 @@ def claim(conn, worker_id, roots, llm_slots=1, lease_seconds=60):
                 except SecurityError as e:
                     _fail_waiting(conn, job_id, f"컷표 경로 거부: {e}")
                     continue
+                # render 를 집으면 같은 트랜잭션에서 state→building(docs/01 §2 topic→building→review)
+                building = ", state='building'" if cmd == "render" else ""
                 cur = conn.execute(
-                    "UPDATE jobs SET queue_state='running', slot_id=?, attempts=attempts+1, lease_owner=?, "
+                    f"UPDATE jobs SET queue_state='running'{building}, slot_id=?, attempts=attempts+1, lease_owner=?, "
                     f"lease_expires_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','+{int(lease_seconds)} seconds'), "
                     f"heartbeat_at={NOW_SQL}, started_at={NOW_SQL}, updated_at={NOW_SQL}, hold_reason=NULL "
                     "WHERE id=? AND queue_state='waiting'", (slot_id, worker_id, job_id))
                 if cur.rowcount != 1:
                     continue
                 attempts = conn.execute("SELECT attempts FROM jobs WHERE id=?", (job_id,)).fetchone()[0]
-                _event(conn, job_id, "waiting", "running", f"{cmd} 시작 (슬롯 {slot_id}, 시도 {attempts})")
+                _event(conn, job_id, "waiting", "running", f"{cmd} 시작 (슬롯 {slot_id}, 시도 {attempts})"
+                       + (", state→building" if building else ""))
                 return {"id": job_id, "cmd": cmd, "plan": plan, "slot_id": slot_id, "attempts": attempts}
     return None
 
@@ -353,9 +357,23 @@ def heartbeat(conn, job_id, worker_id, lease_seconds):
     return cur.rowcount == 1
 
 
+# 성공(종료 0) 때 전이(docs/01 §2): (queue_state, 작업 state 또는 None=유지, hold_reason).
+# render: building → review(산출물 생성) = 승인함 사람 대기(docs/14 §4 held_human ↔ review).
+# check·recalc: state 유지, 사람이 다음 명령을 지정할 때까지 대기(queue_ops.attach_plan).
+NEXT_CMD_HOLD = "다음 명령 지정 대기"
+SUCCESS_TRANSITIONS = {
+    "render": ("held_human", "review", "승인함 영상 확인 대기"),
+    "check": ("held_human", None, NEXT_CMD_HOLD),
+    "recalc": ("held_human", None, NEXT_CMD_HOLD),
+}
+
+
 def finish(conn, job, worker_id, returncode, output, error=None):
     """실행 결과 전이 + job_events 한 트랜잭션. 임대가 이미 넘어갔으면 False."""
     queue_state, state, reason = classify(returncode, output, job["cmd"], error)
+    success = returncode == 0 and not error and job["cmd"] in SUCCESS_TRANSITIONS
+    if success:
+        queue_state, state, reason = SUCCESS_TRANSITIONS[job["cmd"]]
     with _Tx(conn):
         sets = ["queue_state=?", "slot_id=NULL", "lease_owner=NULL", "lease_expires_at=NULL",
                 f"updated_at={NOW_SQL}", "hold_reason=?"]
@@ -372,12 +390,16 @@ def finish(conn, job, worker_id, returncode, output, error=None):
             return False
         msg = f"{job['cmd']} 종료 코드 {returncode}" + (f", state→{state}" if state else "")
         if queue_state == "held_human":
-            msg += f", 재승인 대기: {reason}"
+            msg += f", {reason}" if success else f", 재승인 대기: {reason}"
         error = None
         if state == "failed":
             tail = "\n".join(output.strip().splitlines()[-5:])
             error = reason + (f"\n{tail}" if tail else "")
-        _event(conn, job["id"], "running", queue_state, msg, error)
+        render_count = None
+        if success and job["cmd"] == "render":  # 렌더 횟수: 그 작업의 직전 최대값 + 1
+            render_count = conn.execute(
+                "SELECT COALESCE(MAX(render_count), 0) + 1 FROM job_events WHERE job_id=?", (job["id"],)).fetchone()[0]
+        _event(conn, job["id"], "running", queue_state, msg, error, render_count)
     return True
 
 

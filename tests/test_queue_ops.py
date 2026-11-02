@@ -357,5 +357,131 @@ class ConcurrencyTest(OpsBase):
                 self.assertEqual(moves, [("waiting", "finished")])
 
 
+class AttachPlanTest(OpsBase):
+    """컷표 지정: held_human('컷표 작성 대기') → waiting. 경로는 작업 루트 안 .json, 명령은 check·recalc·render."""
+    HOLD = "컷표 작성 대기(사람·스킬)"
+
+    def held(self, hold=None):
+        j = self.add_job(cmd="check", plan=None)
+        self.c.execute("UPDATE jobs SET queue_state='held_human', hold_reason=? WHERE id=?",
+                       (hold or self.HOLD, j))
+        return j
+
+    def plan(self, cfg=None, name="컷표.json", base=None):
+        d = (base or self.root) / "작품"
+        d.mkdir(exist_ok=True)
+        (d / name).write_text(json.dumps(cfg or {}), encoding="utf-8")
+        return d / name
+
+    def test_attach_moves_to_waiting(self):
+        j = self.held()
+        plan = self.plan()
+        self.assertEqual(qo.attach_plan(self.c, j, "작품/컷표.json", "recalc", [self.root]), "waiting")
+        self.assertEqual(self.row(j, "queue_state, state, hold_reason, plan_path, engine_cmd"),
+                         ("waiting", "queued", None, str(plan.resolve()), "recalc"))
+        ev = self.events(j)[-1]
+        self.assertEqual(ev[:2], ("held_human", "waiting"))
+        self.assertIn("컷표 지정", ev[2])
+
+    def test_attach_then_render_goes_to_review(self):
+        j = self.held()
+        self.plan({"exit": 0})
+        qo.attach_plan(self.c, j, "작품/컷표.json", "render", [self.root])
+        job = self.worker().run_once()
+        self.assertEqual(job["id"], j)
+        self.assertEqual(self.row(j)[:3], ("held_human", "review", None))
+        self.assertFalse(qo.can_attach(*self.row(j, "queue_state, hold_reason")))
+
+    def test_full_flow_check_then_render(self):
+        # 컷표 지정(check) → 성공 → 다음 명령 지정 대기 → 경로 비우고 render 지정 → building → review
+        j = self.held()
+        self.plan({"exit": 0})
+        qo.attach_plan(self.c, j, "작품/컷표.json", "check", [self.root])
+        self.worker().run_once()
+        self.assertEqual(self.row(j, "queue_state, state, hold_reason"), ("held_human", "queued", wk.NEXT_CMD_HOLD))
+        self.assertTrue(qo.can_attach("held_human", wk.NEXT_CMD_HOLD))
+        qo.attach_plan(self.c, j, "", "render", [self.root])
+        self.assertEqual(self.row(j, "queue_state, engine_cmd, plan_path"),
+                         ("waiting", "render", str((self.root / "작품" / "컷표.json").resolve())))
+        self.worker().run_once()
+        self.assertEqual(self.row(j, "queue_state, state, hold_reason"),
+                         ("held_human", "review", "승인함 영상 확인 대기"))
+        msgs = [e[2] for e in self.events(j)]
+        self.assertTrue(any("render 시작" in m and "state→building" in m for m in msgs))
+        rc = self.c.execute("SELECT MAX(render_count) FROM job_events WHERE job_id=?", (j,)).fetchone()[0]
+        self.assertEqual(rc, 1)
+        with self.assertRaises(qo.InvalidTransition):  # 검수 대기는 지정 불가(승인함에서 처리)
+            qo.attach_plan(self.c, j, "", "render", [self.root])
+
+    def test_p0_hold_reattach_returns_waiting(self):
+        # render 가 엔진 gate [P0-] 로 보류 → state building 유지 → 사람이 재지정하면 waiting(gate 가 다시 검사)
+        j = self.held()
+        self.plan({"exit": 1, "print": "✗ [P0-2] 승인 뒤에 컷표.json 이 바뀌었다"})
+        qo.attach_plan(self.c, j, "작품/컷표.json", "render", [self.root])
+        self.worker().run_once()
+        q, st, hold = self.row(j, "queue_state, state, hold_reason")
+        self.assertEqual((q, st), ("held_human", "building"))
+        self.assertTrue(hold.startswith("✗ [P0-2]"))
+        self.assertTrue(qo.can_attach(q, hold))
+        self.assertTrue(qo.can_attach("held_human", "[P0-1] 기획 승인 없음"))
+        self.assertEqual(qo.attach_plan(self.c, j, "", "render", [self.root]), "waiting")
+        self.assertEqual(self.row(j, "queue_state, state, hold_reason"), ("waiting", "building", None))
+
+    def test_empty_path_revalidates_existing(self):
+        j = self.held(hold=wk.NEXT_CMD_HOLD)
+        self.c.execute("UPDATE jobs SET plan_path=? WHERE id=?", (str(self.plan(base=self.tmp)), j))
+        with self.assertRaises(qo.InvalidPlan):  # 기존 경로가 루트 밖이면 거부
+            qo.attach_plan(self.c, j, "", "check", [self.root])
+        self.assertEqual(self.row(j)[0], "held_human")
+
+    def assert_rejected(self, j, exc, path, cmd):
+        before = self.events(j)
+        with self.assertRaises(exc):
+            qo.attach_plan(self.c, j, path, cmd, [self.root])
+        self.assertEqual(self.row(j, "queue_state, plan_path, engine_cmd"), ("held_human", None, "check"))
+        self.assertEqual(self.events(j), before)
+
+    def test_path_escape_rejected(self):
+        j = self.held()
+        outside = self.plan(base=self.tmp)  # 작업 루트 밖 tmp/작품/컷표.json
+        self.plan()
+        for path in ("../작품/컷표.json", str(outside), "\\server\share\컷표.json", "", "작품/없음.json"):
+            with self.subTest(path=path):
+                self.assert_rejected(j, qo.InvalidPlan, path, "check")
+
+    def test_non_json_rejected(self):
+        j = self.held()
+        self.plan(name="컷표.txt")
+        self.assert_rejected(j, qo.InvalidPlan, "작품/컷표.txt", "check")
+
+    def test_approve_and_other_commands_rejected(self):
+        j = self.held()
+        self.plan()
+        for cmd in ("approve", "tts-plan", "handoff", "delegate", "", "render; rm"):
+            with self.subTest(cmd=cmd):
+                self.assert_rejected(j, qo.InvalidPlan, "작품/컷표.json", cmd)
+
+    def test_only_plan_hold(self):
+        self.plan()
+        review = self.held(hold="승인함 영상 확인 대기")
+        self.assert_rejected(review, qo.InvalidTransition, "작품/컷표.json", "check")
+        waiting = self.add_job(cmd="check")
+        with self.assertRaises(qo.InvalidTransition):
+            qo.attach_plan(self.c, waiting, "작품/컷표.json", "check", [self.root])
+        self.assertEqual(self.row(waiting)[0], "waiting")
+        with self.assertRaises(qo.JobNotFound):
+            qo.attach_plan(self.c, 999, "작품/컷표.json", "check", [self.root])
+
+    def test_attach_race_one_wins(self):
+        j = self.held()
+        self.plan()
+        before = len(self.events(j))
+        ok, errors = self.race(lambda conn, jid: qo.attach_plan(conn, jid, "작품/컷표.json", "check", [self.root]),
+                               j, n=4)
+        self.assertEqual(ok, 1)
+        self.assertTrue(all(isinstance(e, qo.InvalidTransition) for e in errors))
+        self.assertEqual(len(self.events(j)), before + 1)
+
+
 if __name__ == "__main__":
     unittest.main()

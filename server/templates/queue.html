@@ -29,6 +29,22 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro plan_form(j, back) -%}
+{# 컷표 지정(POST /queue/{id}/plan): 컷표 작성·다음 명령 지정 대기 작업만. 엔진 명령은 허용 목록만(approve 없음). #}
+<form method="post" action="/queue/{{ j.id }}/plan" class="stack" id="plan-form" aria-label="{{ j.name }} 컷표 지정">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="back" value="{{ back }}">
+  <label class="field"><span class="label">컷표 경로 (.json)</span>
+    <input class="input" type="text" name="plan_path" autocomplete="off" spellcheck="false" aria-describedby="hint-plan-{{ j.id }}">
+    <span class="hint" id="hint-plan-{{ j.id }}">작업 루트 안의 컷표.json 만. 상대 경로는 첫 작업 루트 기준, 비우면 지정해 둔 컷표를 다시 씁니다.</span>
+  </label>
+  <label class="field"><span class="label">엔진 명령</span>
+    <select class="input" name="engine_cmd">{% for value, label in attach_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+  </label>
+  <button class="btn btn-primary" type="submit">{{ icon('play') }}컷표 지정</button>
+</form>
+{%- endmacro %}
+
 {% macro job_kv(selected) -%}
 <dl class="kv num">
   <dt>큐 상태</dt><dd>{{ selected.queue_label }}{% if selected.group == 'fail' %} · 실패{% endif %}</dd>
@@ -79,6 +95,7 @@
       {{ op_form(j, 'retry', 'refresh', '재시도', cls='btn btn-secondary', text=True) }}
     {%- else %}
       {% if j.state == 'review' %}<a class="btn btn-link-sm" href="/inbox?job={{ j.id }}#card-{{ j.id }}">승인함에서 보기</a>{% endif %}
+      {% if j.can_attach %}<a class="btn btn-link-sm" href="/queue?job={{ j.id }}#plan-form">컷표 지정</a>{% endif %}
       {{ cancel_ctl(j) }}
     {%- endif %}
   </div>
@@ -184,6 +201,8 @@
 {% if selected %}
 <p><strong>{{ selected.name }}</strong></p>
 {{ job_kv(selected) }}
+{% if selected.can_attach %}<h3 class="label muted">컷표 지정</h3>
+{{ plan_form(selected, 'queue') }}{% endif %}
 <h3 class="label muted">큐 기록</h3>
 {% if events %}<ul class="log num">{% for e in events %}<li{% if e.failed %} class="t-fail"{% endif %}><span>{{ e.label }}{% if e.message %} · {{ e.message }}{% endif %}</span><span>{{ e.at }}</span></li>{% endfor %}</ul>
 {% else %}<p class="label muted">기록이 아직 없습니다.</p>{% endif %}

@@ -9,9 +9,12 @@
   (heartbeat)에서 임대를 잃은 것을 보고 프로세스 트리를 종료한다(worker.run_engine).
   state=scheduled 는 플랫폼 예약 영상 원격 삭제가 필요해 사람 확인 흐름이 따로 필요하므로 여기서 거부한다.
 - 재시도는 failed → queued(queue_state finished → waiting).
+- 컷표 지정: held_human('컷표 작성 대기'·'다음 명령 지정 대기') → waiting. 컷표 경로(작업 루트 안·.json·존재)와
+  엔진 명령(check·recalc·render, approve 없음)을 같은 트랜잭션에서 넣는다. 경로를 비우면 기존 경로를 다시 검사해 쓴다.
 - approve·업로드는 여기 없다(사람만, 큐는 업로드하지 않는다).
 """
-from worker.worker import NOW_SQL, _event, _Tx
+from server.security import SecurityError, resolve_within
+from worker.worker import NEXT_CMD_HOLD, NOW_SQL, _event, _Tx
 
 
 class QueueOpError(Exception):
@@ -24,6 +27,10 @@ class JobNotFound(QueueOpError):
 
 class InvalidTransition(QueueOpError):
     pass
+
+
+class InvalidPlan(QueueOpError):
+    """컷표 경로·엔진 명령 거부(입력 오류)."""
 
 
 # 큐가 다루지 않는 작업 상태: 원격 예약 삭제·업로드 진행은 사람 확인 흐름(docs/14 §4)
@@ -149,4 +156,44 @@ def retry(conn, job_id):
                 ["queue_state='waiting'", "state='queued'", "attempts=0", "finished_at=NULL",
                  "hold_reason=NULL"], [], qs, st)
         _event(conn, job_id, qs, "waiting", "사람 조작: 재시도, state failed→queued")
+    return "waiting"
+
+
+# 사람이 화면에서 고를 수 있는 엔진 명령. approve 는 사람이 CLI 로만(AGENTS.md 절대 규칙).
+ATTACH_COMMANDS = ("check", "recalc", "render")
+# server/views_create.HOLD_REASON 의 앞부분, check·recalc 성공 뒤 대기(worker.SUCCESS_TRANSITIONS),
+# 엔진 gate 의 P0 보류(재지정해도 엔진 gate 가 다시 검사하므로 approve 우회가 아니다).
+PLAN_HOLD_PREFIXES = ("컷표 작성 대기", NEXT_CMD_HOLD, "[P0-")
+
+
+def can_attach(queue_state, hold_reason):
+    # P0 보류 사유는 엔진 출력 줄 그대로라 앞에 "✗ " 표시가 붙는다
+    return queue_state == "held_human" and (hold_reason or "").lstrip("✗ ").startswith(PLAN_HOLD_PREFIXES)
+
+
+def attach_plan(conn, job_id, plan_path, engine_cmd, roots):
+    """컷표 지정: held_human('컷표 작성 대기'·'다음 명령 지정 대기'·P0 보류) → waiting.
+    plan_path 는 작업 루트 안 .json 파일만. 비우면 작업에 있던 경로를 같은 규칙으로 다시 검사해 쓴다.
+    저장하는 경로는 정규화한 절대 경로다(워커가 집을 때 resolve_within 으로 다시 검사)."""
+    if engine_cmd not in ATTACH_COMMANDS:
+        raise InvalidPlan(f"엔진 명령은 {ATTACH_COMMANDS} 중 하나여야 합니다: {engine_cmd!r}")
+    with _Tx(conn):
+        row = conn.execute("SELECT queue_state, state, hold_reason, plan_path FROM jobs WHERE id=?",
+                           (job_id,)).fetchone()
+        if row is None:
+            raise JobNotFound(f"작업이 없습니다: {job_id}")
+        qs, st, hold, old_plan = row
+        if not can_attach(qs, hold):
+            raise InvalidTransition(f"컷표·다음 명령 지정 대기 작업만 지정할 수 있습니다: {job_id} ({qs})")
+        raw = plan_path or old_plan
+        try:
+            plan = resolve_within(raw, roots)
+        except SecurityError as e:
+            raise InvalidPlan(f"컷표 경로 거부: {e}") from e
+        if plan.suffix.lower() != ".json" or not plan.is_file():
+            raise InvalidPlan(f"컷표(.json) 파일이 없습니다: {raw!r}")
+        _update(conn, job_id,
+                ["queue_state='waiting'", "hold_reason=NULL", "plan_path=?", "engine_cmd=?"],
+                [str(plan), engine_cmd], qs, st)
+        _event(conn, job_id, qs, "waiting", f"사람 조작: 컷표 지정 {plan.name} · {engine_cmd}")
     return "waiting"

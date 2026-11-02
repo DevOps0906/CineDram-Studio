@@ -78,6 +78,28 @@ class ViewsTestBase(unittest.TestCase):
 
 
 class StatusPageTest(ViewsTestBase):
+    def test_plan_form_only_for_plan_hold(self):
+        self.add_job("queued", title="대기 작업")
+        self.add_job("queued", title="다른 작업")
+        self.seed([("UPDATE jobs SET queue_state = 'held_human', hold_reason = '컷표 작성 대기(사람·스킬)'"
+                    " WHERE id = 1", ()),
+                   ("UPDATE jobs SET queue_state = 'waiting' WHERE id = 2", ())])
+        html = self.client.get("/status?job=1").text
+        self.assertIn('action="/queue/1/plan"', html)
+        self.assertIn('href="?job=1#plan-form"', html)
+        self.assertIn('name="back" value="status"', html)
+        form = html[html.index('action="/queue/1/plan"'):]
+        form = form[:form.index("</form>")]
+        self.assertIn('name="csrf_token"', form)
+        self.assertEqual(re.findall(r'<option value="([^"]+)"', form), ["check", "recalc", "render"])
+        self.assertNotIn("approve", form)
+        # 폼은 3초 갱신 영역(#jobs) 밖(상세 패널)에만 있다
+        self.assertEqual(html.count('action="/queue/1/plan"'), 1)
+        self.assertGreater(html.index('action="/queue/1/plan"'), html.index('class="aside-head"'))
+        html2 = self.client.get("/status?job=2").text
+        self.assertNotIn("/queue/2/plan", html2)
+        self.assertNotIn("?job=2#plan-form", html2)
+
     def test_empty(self):
         r = self.client.get("/status")
         self.assertEqual(r.status_code, 200)
@@ -236,6 +258,15 @@ class ApproveTest(ViewsTestBase):
         msg = self.row("SELECT message FROM job_events WHERE job_id = 1 AND to_state = 'approved'")[0]
         self.assertRegex(msg, r"^사람 영상 승인 · 채널 k3x7Qa · 요청 [0-9a-f]{8}$")
         self.assertNotIn("UCabcdefk3x7Qa", msg)
+
+    def test_success_finishes_queue(self):
+        # 렌더 성공 뒤 승인함 대기(held_human/review) → 승인하면 큐에서 빠진다(워커가 다시 집지 않게)
+        self.add_job("review")
+        self.seed([("UPDATE jobs SET queue_state = 'held_human', hold_reason = '승인함 영상 확인 대기',"
+                    " engine_cmd = 'render', plan_path = 'x.json' WHERE id = 1", ())])
+        self.assertEqual(self.approve(1).status_code, 303)
+        self.assertEqual(self.row("SELECT state, queue_state, hold_reason, slot_id FROM jobs WHERE id = 1"),
+                         ("approved", "finished", None, None))
 
     def test_rights_unverified_rejected(self):
         self.add_job("review", rights="unverified")

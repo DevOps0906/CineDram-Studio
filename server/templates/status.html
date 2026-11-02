@@ -15,6 +15,22 @@
 </dl>
 {%- endmacro %}
 
+{% macro plan_form(j, back) -%}
+{# 컷표 지정(POST /queue/{id}/plan): 컷표 작성·다음 명령 지정 대기 작업만. 엔진 명령은 허용 목록만(approve 없음). #}
+<form method="post" action="/queue/{{ j.id }}/plan" class="stack" id="plan-form" aria-label="{{ j.name }} 컷표 지정">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="back" value="{{ back }}">
+  <label class="field"><span class="label">컷표 경로 (.json)</span>
+    <input class="input" type="text" name="plan_path" autocomplete="off" spellcheck="false" aria-describedby="hint-plan-{{ j.id }}">
+    <span class="hint" id="hint-plan-{{ j.id }}">작업 루트 안의 컷표.json 만. 상대 경로는 첫 작업 루트 기준, 비우면 지정해 둔 컷표를 다시 씁니다.</span>
+  </label>
+  <label class="field"><span class="label">엔진 명령</span>
+    <select class="input" name="engine_cmd">{% for value, label in attach_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+  </label>
+  <button class="btn btn-primary" type="submit">{{ icon('play') }}컷표 지정</button>
+</form>
+{%- endmacro %}
+
 {% macro job_card(j) -%}
 {% set is_sel = selected and selected.id == j.id %}
 <article class="card{% if is_sel %} selected{% endif %}" id="job-{{ j.id }}" data-job="{{ j.id }}">
@@ -35,6 +51,7 @@
     {%- elif j.state == 'need_source' %}<span class="label muted">원본 들어오면 자동 제작</span>
     {%- elif j.state == 'review' %}<a class="btn btn-link-sm" href="/inbox?job={{ j.id }}#card-{{ j.id }}">승인함에서 보기</a>
     {%- elif j.render_count %}<span class="label muted num">렌더 {{ j.render_count }}회</span>{% endif %}
+    {%- if j.can_attach %}<a class="btn btn-link-sm" href="?job={{ j.id }}#plan-form">컷표 지정</a>{% endif %}
   </div>
   {%- if is_sel and picked %}
   {# 모바일(~767)은 우측 열이 없어 고른 카드 안에 상세를 펼친다. #}
@@ -96,6 +113,9 @@
 {% if selected %}
 <p><strong>{{ selected.name }}</strong>{% if selected.title %}<br><span class="label muted">{{ selected.title }}</span>{% endif %}</p>
 {{ job_kv(selected) }}
+{# 폼은 3초 갱신 영역(#jobs) 밖에 둔다: 카드 교체 때 입력이 지워지지 않게. #}
+{% if selected.can_attach %}<h3 class="label muted">컷표 지정</h3>
+{{ plan_form(selected, 'status') }}{% endif %}
 <h3 class="label muted">단계 로그</h3>
 {% if events %}{{ event_log(events) }}{% else %}<p class="label muted">기록된 단계가 아직 없습니다.</p>{% endif %}
 {% else %}

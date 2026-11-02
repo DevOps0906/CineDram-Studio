@@ -60,7 +60,8 @@ def connect_rw(db_path):
 
 
 JOB_SELECT = """
-SELECT j.id, j.state, j.rule_set, j.channel_id, j.created_at, j.started_at, j.finished_at,
+SELECT j.id, j.state, j.queue_state, j.hold_reason, j.rule_set, j.channel_id, j.created_at, j.started_at,
+       j.finished_at,
        s.episode, s.rights_status, w.title AS work_title,
        (SELECT MAX(e.render_count) FROM job_events e WHERE e.job_id = j.id) AS render_count,
        (SELECT e.from_state FROM job_events e WHERE e.job_id = j.id ORDER BY e.id DESC LIMIT 1)

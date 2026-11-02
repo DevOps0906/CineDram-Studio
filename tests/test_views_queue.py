@@ -26,7 +26,8 @@ try:
     from server.app import PORT, create_app
     from server.csrf import CSRF_FAILED, require_csrf
     from server.views import ICONS, get_db_path
-    from server.views_queue import REJECTED, NOT_FOUND, BAD_MOVE, router
+    from server.views_create import get_roots
+    from server.views_queue import PLAN_BAD, PLAN_REJECTED, REJECTED, NOT_FOUND, BAD_MOVE, router
 except ImportError:  # 표준 라이브러리만 있는 환경
     TestClient = None
 
@@ -50,6 +51,8 @@ class QueueViewTestBase(unittest.TestCase):
         app = create_app()
         app.include_router(router)
         app.dependency_overrides[get_db_path] = lambda: db_path
+        self.root = self.tmp / "작업"
+        app.dependency_overrides[get_roots] = lambda: [str(self.root)]
         return TestClient(app, base_url=BASE, client=("127.0.0.1", 50000), headers={"Origin": BASE},
                           follow_redirects=False)
 
@@ -291,6 +294,88 @@ class QueueActionTest(QueueViewTestBase):
         r = self.client.post(f"/queue/{job}/pause", data={"csrf_token": "x" * 40})
         self.assertEqual(r.status_code, 403)
         self.assertEqual(self.row(job)[0], "waiting")
+
+
+class AttachPlanViewTest(QueueViewTestBase):
+    HOLD = "컷표 작성 대기(사람·스킬)"
+
+    def setUp(self):
+        super().setUp()
+        (self.root / "작품").mkdir(parents=True)
+        (self.root / "작품" / "컷표.json").write_text("{}", encoding="utf-8")
+        (self.tmp / "밖.json").write_text("{}", encoding="utf-8")
+
+    def plan_row(self, job_id):
+        conn = migrate_mod.connect(self.db)
+        try:
+            return conn.execute("SELECT queue_state, hold_reason, plan_path, engine_cmd FROM jobs WHERE id=?",
+                                (job_id,)).fetchone()
+        finally:
+            conn.close()
+
+    def test_form_in_detail_only_for_plan_hold(self):
+        j = self.add_job("held_human", hold_reason=self.HOLD)
+        other = self.add_job("held_human", hold_reason="승인함 영상 확인 대기")
+        html = self.client.get(f"/queue?job={j}").text
+        self.assertIn(f'action="/queue/{j}/plan"', html)
+        self.assertIn(f'href="/queue?job={j}#plan-form"', html)
+        form = html[html.index(f'action="/queue/{j}/plan"'):]
+        form = form[:form.index("</form>")]
+        self.assertIn('name="csrf_token"', form)
+        self.assertEqual(re.findall(r'<option value="([^"]+)"', form), ["check", "recalc", "render"])
+        self.assertNotIn(f"/queue/{other}/plan", self.client.get(f"/queue?job={other}").text)
+        p0 = self.add_job("held_human", hold_reason="✗ [P0-2] 승인 뒤에 컷표.json 이 바뀌었다")
+        self.assertIn(f'action="/queue/{p0}/plan"', self.client.get(f"/queue?job={p0}").text)
+
+    def test_attach_success_redirects_back(self):
+        for back, loc in (("queue", "/queue"), ("status", "/status"), ("evil", "/queue")):
+            with self.subTest(back=back):
+                j = self.add_job("held_human", hold_reason=self.HOLD)
+                r = self.post(j, "plan", plan_path="작품/컷표.json", engine_cmd="render", back=back)
+                self.assertEqual(r.status_code, 303, r.text[:300])
+                self.assertEqual(r.headers["location"], f"{loc}?job={j}")
+                qs, hold, plan, cmd = self.plan_row(j)
+                self.assertEqual((qs, hold, cmd), ("waiting", None, "render"))
+                self.assertEqual(Path(plan), (self.root / "작품" / "컷표.json").resolve())
+
+    def test_path_escape_rejected_400(self):
+        j = self.add_job("held_human", hold_reason=self.HOLD)
+        for path in ("../밖.json", str(self.tmp / "밖.json"), "작품/없음.json", ""):
+            with self.subTest(path=path):
+                r = self.post(j, "plan", plan_path=path, engine_cmd="check")
+                self.assertEqual(r.status_code, 400)
+                self.assertIn(PLAN_BAD, r.text)
+                self.assertEqual(tuple(self.plan_row(j)), ("held_human", self.HOLD, None, None))
+
+    def test_approve_command_rejected_400(self):
+        j = self.add_job("held_human", hold_reason=self.HOLD)
+        for cmd in ("approve", "handoff", ""):
+            with self.subTest(cmd=cmd):
+                r = self.post(j, "plan", plan_path="작품/컷표.json", engine_cmd=cmd)
+                self.assertEqual(r.status_code, 400)
+                self.assertEqual(self.plan_row(j)[0], "held_human")
+
+    def test_not_plan_hold_409_and_missing_404(self):
+        for qs, hold in (("waiting", None), ("held_human", "승인함 영상 확인 대기")):
+            with self.subTest(qs=qs):
+                j = self.add_job(qs, hold_reason=hold)
+                r = self.post(j, "plan", plan_path="작품/컷표.json", engine_cmd="check")
+                self.assertEqual(r.status_code, 409)
+                self.assertIn(PLAN_REJECTED, r.text)
+                self.assertEqual(self.plan_row(j)[0], qs)
+        r = self.post(999, "plan", plan_path="작품/컷표.json", engine_cmd="check")
+        self.assertEqual(r.status_code, 404)
+
+    def test_no_token_403(self):
+        j = self.add_job("held_human", hold_reason=self.HOLD)
+        self.client.get("/queue")
+        r = self.post(j, "plan", token=False, plan_path="작품/컷표.json", engine_cmd="check")
+        self.assertEqual(r.status_code, 403)
+        self.assertIn(CSRF_FAILED, r.text)
+        r = self.client.post(f"/queue/{j}/plan", data={"csrf_token": "x" * 40, "plan_path": "작품/컷표.json",
+                                                         "engine_cmd": "check"})
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(tuple(self.plan_row(j)), ("held_human", self.HOLD, None, None))
 
 
 if __name__ == "__main__":

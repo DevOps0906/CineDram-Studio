@@ -3,6 +3,7 @@
 조회는 connect_ro, 조작은 connect_rw 로 worker.queue_ops 를 부른다(워커와는 SQLite 로만 통신).
 모든 POST 는 require_csrf. 성공은 303 → /queue, 거부(InvalidTransition)는 409, 없는 작업은 404 로
 같은 화면에 사람이 읽을 안내를 띄운다. 업로드·approve 조작은 여기 없다(사람만, 큐는 업로드하지 않는다).
+컷표 지정 POST /queue/{id}/plan: 컷표 작성 대기 작업에 컷표 경로·엔진 명령(check·recalc·render)을 넣어 대기로.
 템플릿·아이콘·공용 표기는 server/views.py 것을 그대로 쓴다.
 """
 import logging
@@ -14,6 +15,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from server import db, views
+from server.views_create import get_roots
 from server.csrf import require_csrf
 from worker import queue_ops
 from worker.worker import GPU_SLOTS
@@ -70,6 +72,10 @@ REJECTED = {
 NOT_FOUND = "작업을 찾지 못했습니다. 이미 지워졌을 수 있습니다."
 BAD_MOVE = "순서 변경 방향이 올바르지 않습니다."
 UNKNOWN_OP = "알 수 없는 조작입니다."
+PLAN_REJECTED = "컷표 작성·다음 명령 지정 대기 작업만 지정할 수 있습니다. 상태가 바뀌었을 수 있습니다."
+PLAN_BAD = "컷표 경로나 엔진 명령이 올바르지 않습니다. 작업 루트 안의 .json 파일과 점검·다시 계산·렌더 중 하나만 쓸 수 있습니다."
+# 컷표 지정 폼의 엔진 명령 선택지(queue_ops.ATTACH_COMMANDS 순서, approve 없음)
+ATTACH_CHOICES = [(c, views.ATTACH_LABEL.get(c, c)) for c in queue_ops.ATTACH_COMMANDS]
 DB_DOWN = "큐 상태를 불러오지 못했습니다. DB 연결을 확인한 뒤 다시 시도하세요."
 
 QUEUE_SELECT = """
@@ -116,6 +122,7 @@ def _view_row(job, now):
         "unverified": views._unverified(job),
         "badge": QUEUE_BADGE["failed" if failed else qs] if (failed or qs in QUEUE_BADGE) else None,
         "can_cancel": not failed and state not in queue_ops.CANCEL_BLOCKED_STATES,
+        "can_attach": queue_ops.can_attach(qs, job["hold_reason"]),
     }
 
 
@@ -173,13 +180,42 @@ def _render_queue(request, db_path, job=None, notice=None, status_code=200):
     return views._render(request, "queue.html", {
         "page": "queue", "nav_counts": views._nav_counts(counts), "notice": notice, "groups": groups,
         "total": len(rows), "slots": slots, "selected": selected, "events": events, "picked": job is not None,
-        "wait_total": len(wait_ids),
+        "wait_total": len(wait_ids), "attach_choices": ATTACH_CHOICES,
     }, status_code=status_code)
 
 
 @router.get("/queue", response_class=HTMLResponse)
 def queue_page(request: Request, job: Optional[int] = None, db_path=Depends(views.get_db_path)):
     return _render_queue(request, db_path, job)
+
+
+@router.post("/queue/{job_id}/plan", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def queue_attach_plan(request: Request, job_id: int, plan_path: str = Form(default=""),
+                      engine_cmd: str = Form(default=""), back: str = Form(default="queue"),
+                      db_path=Depends(views.get_db_path), roots=Depends(get_roots)):
+    """컷표 지정. 성공은 303 → 온 화면(/queue 또는 /status)의 그 작업, 거부는 /queue 화면에 안내."""
+    try:
+        conn = db.connect_rw(db_path)
+    except db.DBUnavailable as exc:
+        logger.warning("컷표 지정 실패(DB): %s", exc)
+        return _render_queue(request, db_path, notice=DB_DOWN, status_code=503)
+    try:
+        queue_ops.attach_plan(conn, job_id, plan_path.strip(), engine_cmd, roots)
+    except queue_ops.JobNotFound:
+        return _render_queue(request, db_path, notice=NOT_FOUND, status_code=404)
+    except queue_ops.InvalidPlan as exc:
+        logger.info("컷표 지정 거부 #%s: %s", job_id, exc)
+        return _render_queue(request, db_path, job_id, notice=PLAN_BAD, status_code=400)
+    except queue_ops.QueueOpError as exc:  # InvalidTransition
+        logger.info("컷표 지정 거부 #%s: %s", job_id, exc)
+        return _render_queue(request, db_path, job_id, notice=PLAN_REJECTED, status_code=409)
+    except sqlite3.Error as exc:
+        logger.warning("컷표 지정 실패 #%s: %s", job_id, exc)
+        return _render_queue(request, db_path, job_id, notice=DB_DOWN, status_code=503)
+    finally:
+        conn.close()
+    page = "status" if back == "status" else "queue"
+    return RedirectResponse(f"/{page}?job={job_id}", status_code=303)
 
 
 def _apply(conn, job_id, op, move):

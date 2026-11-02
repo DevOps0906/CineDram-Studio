@@ -112,7 +112,7 @@ class ClaimTest(WorkerTestBase):
         b = self.add_job()
         job = wk.claim(self.c, "w1", [self.root])
         self.assertEqual((job["id"], job["slot_id"], job["attempts"]), (a, "gpu-1", 1))
-        self.assertEqual(self.row(a)[:3], ("running", "queued", "gpu-1"))
+        self.assertEqual(self.row(a)[:3], ("running", "building", "gpu-1"))  # render 집기 = building
         self.assertEqual([e[:2] for e in self.events(a)], [("waiting", "running")])
         self.assertIsNone(wk.claim(self.c, "w1", [self.root]))  # GPU 슬롯 1 고정
         self.assertEqual(self.row(b)[0], "waiting")
@@ -167,15 +167,63 @@ class RunTest(WorkerTestBase):
         return job_id, job
 
     def test_success(self):
+        # render 성공: building → review(docs/01 §2) = 승인함 사람 대기(held_human, docs/14 §4)
         j, job = self.run_job({"exit": 0})
-        self.assertEqual(self.row(j)[:3], ("finished", "queued", None))
-        self.assertEqual(self.events(j)[-1][:2], ("running", "finished"))
+        q, st, slot, hold, _ = self.row(j)
+        self.assertEqual((q, st, slot), ("held_human", "review", None))
+        self.assertEqual(hold, "승인함 영상 확인 대기")
+        ev = self.events(j)[-1]
+        self.assertEqual(ev[:2], ("running", "held_human"))
+        self.assertIn("state→review", ev[2])
+        self.assertIsNone(ev[3])
         self.assertTrue((self.tmp / "logs" / f"job-{j}-1.log").exists())
+
+    def render_counts(self, job_id):
+        return [r[0] for r in self.c.execute(
+            "SELECT render_count FROM job_events WHERE job_id=? AND render_count IS NOT NULL ORDER BY id", (job_id,))]
+
+    def test_claim_render_sets_building(self):
+        j = self.add_job(cfg={})
+        job = wk.claim(self.c, "w1", [self.root])
+        self.assertEqual(job["id"], j)
+        self.assertEqual(self.row(j)[:2], ("running", "building"))
+        self.assertIn("state→building", self.events(j)[-1][2])
+        c = self.add_job(cmd="check", kind="llm", cfg={})
+        wk.claim(self.c, "w1", [self.root])
+        self.assertEqual(self.row(c)[:2], ("running", "queued"))  # render 가 아니면 state 유지
+
+    def test_render_count_increments(self):
+        j, _ = self.run_job({"exit": 0})
+        self.assertEqual(self.render_counts(j), [1])
+        self.c.execute("UPDATE jobs SET queue_state='waiting', hold_reason=NULL WHERE id=?", (j,))
+        self.worker().run_once()
+        self.assertEqual(self.render_counts(j), [1, 2])
+        self.assertEqual(self.row(j)[:2], ("held_human", "review"))
+
+    def test_check_recalc_success_waits_next_command(self):
+        # check·recalc 성공: 작업 state 유지, 사람이 다음 명령을 지정할 때까지 held_human
+        for cmd in ("check", "recalc"):
+            with self.subTest(cmd=cmd):
+                j = self.add_job(cmd=cmd, cfg={"exit": 0})
+                self.worker().run_once()
+                self.assertEqual(self.row(j)[:4], ("held_human", "queued", None, wk.NEXT_CMD_HOLD))
+                ev = self.events(j)[-1]
+                self.assertEqual(ev[:2], ("running", "held_human"))
+                self.assertIn(wk.NEXT_CMD_HOLD, ev[2])
+                self.assertNotIn("재승인", ev[2])
+                self.assertEqual(self.render_counts(j), [])
+
+    def test_render_failure_not_review(self):
+        for cfg in ({"exit": 1, "print": "✗ [P0-2] 승인 뒤 변경"}, {"exit": 2}):
+            with self.subTest(cfg=cfg):
+                j, _ = self.run_job(cfg)
+                self.assertNotEqual(self.row(j)[1], "review")
+                self.assertEqual(self.render_counts(j), [])
 
     def test_p0_exit1_held_human(self):
         j, _ = self.run_job({"exit": 1, "print": "✗ [P0-2] 승인 뒤에 컷표.json 이 바뀌었다"})
         q, st, slot, hold, _ = self.row(j)
-        self.assertEqual((q, st, slot), ("held_human", "queued", None))
+        self.assertEqual((q, st, slot), ("held_human", "building", None))  # 재승인 대기, state 는 집을 때 값
         self.assertIn("[P0-2]", hold)
 
     def test_other_exit_failed(self):
@@ -315,7 +363,7 @@ class LockReclaimTest(WorkerTestBase):
         self.c.execute("UPDATE jobs SET lease_expires_at='2000-01-01T00:00:00.000Z'")
         self.c.execute("UPDATE jobs SET attempts=3 WHERE id=?", (b,))
         self.assertEqual(sorted(wk.reclaim(self.c, self.lock)), [a, b])
-        self.assertEqual(self.row(a)[:3], ("waiting", "queued", None))
+        self.assertEqual(self.row(a)[:3], ("waiting", "building", None))  # 회수는 state 를 건드리지 않는다
         self.assertEqual(self.row(b)[:2], ("finished", "failed"))
         self.assertIn("재시도 상한", self.events(b)[-1][3])
 

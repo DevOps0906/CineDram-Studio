@@ -20,6 +20,7 @@ from markupsafe import Markup
 
 from server import db
 from server.csrf import CookieConflict, cookie_pair, require_csrf
+from worker import queue_ops
 
 logger = logging.getLogger("server.views")
 
@@ -231,6 +232,7 @@ def _view_job(job, now):
         "badge": _badge(job),
         "steps": _progress(job),
         "channel": _channel_hint(job["channel_id"]),
+        "can_attach": queue_ops.can_attach(job.get("queue_state"), job.get("hold_reason")),
     }
 
 
@@ -288,6 +290,7 @@ def status_page(request: Request, job: Optional[int] = None, db_path=Depends(get
     return _render(request, "status.html", {
         "page": "status", "nav_counts": _nav_counts(counts), "active": active, "review": review,
         "selected": selected, "events": events, "picked": job is not None,
+        "attach_choices": [(c, ATTACH_LABEL.get(c, c)) for c in queue_ops.ATTACH_COMMANDS],
     })
 
 
@@ -333,6 +336,10 @@ def _inbox_response(request, db_path, tab, job, notice=None, status_code=200):
     }, status_code=status_code)
 
 
+# 컷표 지정 폼(POST /queue/{id}/plan, server/views_queue.py)의 엔진 명령 표기. approve 는 선택지에 없다.
+ATTACH_LABEL = {"check": "점검 (check)", "recalc": "다시 계산 (recalc)", "render": "렌더 (render)"}
+
+
 # ---------------------------------------------------------------- 영상 승인(review → approved, docs/01 §2)
 # 엔진 approve(기획 승인, 기획승인.json)는 절대 부르지 않는다: 덮어쓰면 P0-2 우회가 된다.
 APPROVER = "사용자"  # 엔진 approve --by 기본값과 같은 상수(사람 1인 로컬 도구)
@@ -374,7 +381,9 @@ def approve_job(conn, job_id, request_tag):
         if row["rights_status"] not in APPROVABLE_RIGHTS:
             raise ApproveRejected(409, MSG_RIGHTS)
         cur = conn.execute(
-            "UPDATE jobs SET state = 'approved', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+            # 승인한 작업은 큐에서 뺀다(queue_state finished): 워커가 다시 집지 않게. 업로드는 큐 밖(docs/14 §4).
+            "UPDATE jobs SET state = 'approved', queue_state = 'finished', hold_reason = NULL, slot_id = NULL,"
+            " updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
             " WHERE id = ? AND state = 'review' AND queue_state IS NOT 'running'",
             (job_id,),
         )
