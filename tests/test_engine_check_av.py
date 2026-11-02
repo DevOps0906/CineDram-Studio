@@ -73,8 +73,9 @@ class TailRoomTest(CheckCase):
         self.assertNotIn("P8-3", self.cut1("00:00.0", "00:02.7"))
 
     def test_start_01_before_passes_and_005_is_error(self):
-        self.assertNotIn("P8-3", self.cut1("00:00.4", "00:03.0"))
-        self.assertIn("P8-3", self.cut1("00:00.45", "00:03.0"))
+        srt = [(0.5, 2.5, "지금 뭐라고 했어요"), *BASE_SRT[1:]]   # 첫 음절 0.5초 (C3-3 앞 무음 0.1초 안)
+        self.assertNotIn("P8-3", self.cut1("00:00.4", "00:03.0", srt))
+        self.assertIn("P8-3", self.cut1("00:00.45", "00:03.0", srt))
 
     def test_close_neighbor_uses_midpoint(self):
         # 줄 끝 2.5 / 이웃 시작 2.7 (간격 0.2) → 중점 2.6 까지만 있으면 통과, 0.2초 규칙이면 실패했을 값

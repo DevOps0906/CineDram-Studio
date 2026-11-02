@@ -50,19 +50,19 @@ def main(d):
             "sensitive_review": "컷 5 목조르기: 우회(화면 02:30~)"
         },
         "cuts": [
-            {"no": 1, "kind": "dialog", "src_start": "01:41.8", "src_end": "01:44.8", "note": "후킹, 말하는 얼굴"},
-            {"no": 2, "kind": "narration", "beat": 1, "label": "시작", "src_start": "01:45.0", "quiet_end": "01:52.0",
+            {"no": 1, "kind": "dialog", "src_start": "01:41.9", "src_end": "01:44.7", "note": "후킹, 말하는 얼굴"},
+            {"no": 2, "kind": "narration", "beat": 1, "label": "시작", "src_start": "01:44.7", "quiet_end": "01:52.0",
              "tts_text": "신입 사원이 첫 출근날 부장에게 무시당하고 있다",
              "sub_lines": ["신입 사원이 첫 출근날", "부장에게 무시당하고 있다"]},
-            {"no": 3, "kind": "dialog", "src_start": "01:57.8", "src_end": "02:00.8"},
+            {"no": 3, "kind": "dialog", "src_start": "02:01.9", "src_end": "02:04.7"},
             {"no": 4, "kind": "narration", "beat": 2, "label": "근거", "src_start": "02:06.0", "quiet_end": "02:13.0",
              "tts_text": "막말은 점점 심해지고 신입은 말없이 듣는다",
              "sub_lines": ["막말은 점점 심해지고", "신입은 말없이 듣는다"]},
-            {"no": 5, "kind": "dialog", "src_start": "02:17.8", "src_end": "02:20.8", "visual_start": "02:30.0",
+            {"no": 5, "kind": "dialog", "src_start": "02:21.9", "src_end": "02:24.7", "visual_start": "02:30.0",
              "note": "민감 장면 우회: 소리는 원음, 화면은 듣는 사람 반응",
              "sensitive": {"type": "목조르기", "method": "bypass", "audio": "duck"}},
-            {"no": 6, "kind": "dialog", "src_start": "02:29.8", "src_end": "02:32.8"},
-            {"no": 7, "kind": "dialog", "src_start": "02:49.8", "src_end": "02:52.8", "note": "펀치 + 반응 얼굴"}
+            {"no": 6, "kind": "dialog", "src_start": "02:29.9", "src_end": "02:36.7"},
+            {"no": 7, "kind": "dialog", "src_start": "02:41.9", "src_end": "02:48.7", "note": "펀치 + 반응 얼굴"}
         ]
     }
     (d / "컷표.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")

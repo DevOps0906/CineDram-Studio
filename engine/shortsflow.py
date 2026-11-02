@@ -38,6 +38,8 @@ SYNC_TOL = 0.01     # C5-9 싱크 환산 오차(반올림) — 잠정값
 LEAD = 0.1          # P8-3 첫 음절 앞 여유
 TAILROOM = 0.2      # P8-3 끝 음절 뒤 여유
 NEAR_GAP = 0.3      # P8-3 이웃 줄 간격이 이보다 작으면 중점에서 자른다
+AUTO_LEAD = 0.5     # C3-3 자동 받아쓰기 SRT 의 후킹 첫 소리 허용 폭 (P8-2 ±0.5초)
+FRAME = 1 / 30      # C3-3 수동 SRT 상한 = LEAD + 1프레임(30fps). P8-3 이 0.1초 미만을 막으므로 0.1~0.134초 허용 구간을 둔다
 P82_NOTE = "자동 받아쓰기 SRT — 컷 경계 ±0.5초 확인 필요"
 LEN_MIN, LEN_MAX = 20.0, 59.0   # C7-1
 HERE = Path(__file__).resolve().parent
@@ -308,6 +310,7 @@ def check(plan, resolved, subs, issues=None, max_narr_pct=35.0, src_lines=None):
         iss.append(("warn", "P8-2", P82_NOTE))
     iss += sync_issues(cuts, subs, src_lines)
     iss += tail_room_issues(cuts, src_lines)
+    iss += hook_first_sound_issues(cuts, src_lines, meta.get("srt_kind"))
     t = meta.get("title") or []
     if len(t) != 2 or any(nospace(x) > 12 for x in t) or sum(nospace(x) for x in t) > 24:
         iss.append(("warn", "C4-3", "제목은 두 줄, 줄당 12자·합 24자 이내"))
@@ -358,6 +361,27 @@ def tail_room_issues(cuts, src_lines):
             if b < need - 1e-3:
                 iss.append(("error", "P8-3", f"컷 {c['no']}: «{tx[:12]}» 끝 여유가 {b - le:.2f}초 (0.2초 필요)"))
     return iss
+
+
+def hook_first_sound_issues(cuts, src_lines, srt_kind):
+    """C3-3: 후킹(컷 1) 대사의 첫 소리는 0초. 수동 SRT 는 LEAD+FRAME(약 0.134초) 초과면 error,
+    자동 받아쓰기 SRT 는 경계 ±0.5초(P8-2)라 LEAD+FRAME~AUTO_LEAD 는 warn, AUTO_LEAD 초과는 error. 렌더 결과 측정은 A10-17."""
+    c = cuts[0] if cuts else None
+    if not src_lines or not c or c["kind"] != "dialog":
+        return []
+    a, b = c["src_start"], c["src_end"]
+    inner = [ls for ls, le, _ in src_lines if le > a and ls < b]
+    if not inner:
+        return [("error", "C3-3", f"컷 {c['no']}: 후킹 컷에 원본 SRT 대사가 없다 — 첫 소리(0초)를 확인할 수 없다")]
+    lead = min(inner) - a
+    if srt_kind != "manual":
+        if lead > AUTO_LEAD + 1e-3:
+            return [("error", "C3-3", f"컷 {c['no']}: 후킹 첫 소리가 {lead:.2f}초에 시작 — 앞 무음(첫 소리는 0초)")]
+        if lead > LEAD + FRAME + 1e-3:
+            return [("warn", "C3-3", f"컷 {c['no']}: 자동 받아쓰기 경계 — 확인 필요, 후킹 첫 소리 {lead:.2f}초(±{AUTO_LEAD}초 안)")]
+    elif lead > LEAD + FRAME + 1e-3:
+        return [("error", "C3-3", f"컷 {c['no']}: 후킹 첫 소리가 {lead:.2f}초에 시작 — 앞 무음(첫 소리는 0초)")]
+    return []
 
 
 def print_issues(iss):
