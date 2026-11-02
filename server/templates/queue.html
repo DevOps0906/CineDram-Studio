@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}대기 큐{% endblock %}
+{% block aside_label %}선택한 작업{% endblock %}
+
+{% macro op_form(j, op, ico, label, move=None, cls='icon-btn', text=False) -%}
+<form method="post" action="/queue/{{ j.id }}/{{ op }}" class="q-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {%- if move %}<input type="hidden" name="move" value="{{ move }}">{% endif %}
+  <button class="{{ cls }}" type="submit"{% if not text %} aria-label="{{ j.name }} {{ label }}" title="{{ label }}"{% endif %}>{{ icon(ico) }}{% if text %}{{ label }}{% endif %}</button>
+</form>
+{%- endmacro %}
+
+{% macro off_btn(j, ico, label) -%}
+<button class="icon-btn" type="button" aria-disabled="true" disabled aria-label="{{ j.name }} {{ label }}" title="{{ label }}">{{ icon(ico) }}</button>
+{%- endmacro %}
+
+{% macro cancel_ctl(j) -%}
+{% if j.can_cancel %}
+<details class="q-cancel">
+  <summary class="icon-btn" aria-label="{{ j.name }} 취소">{{ icon('x') }}</summary>
+  <div class="q-cancel-box card">
+    <p class="label"><strong>작업을 취소할까요?</strong></p>
+    <p class="label muted">{% if j.queue_state == 'running' %}즉시 멈추고 슬롯이 풀립니다. 중간 산출물은 남습니다.{% elif j.group == 'human' %}기획안·음성·자막은 보관하고 큐에서 뺍니다.{% else %}큐에서 빠집니다.{% endif %} 되돌릴 수 없습니다.</p>
+    {{ op_form(j, 'cancel', 'x', '취소 실행', cls='btn btn-danger', text=True) }}
+  </div>
+</details>
+{% else %}
+{{ off_btn(j, 'x', '취소 (업로드 중·예약됨은 원격 삭제 확인이 필요해 여기서 불가)') }}
+{% endif %}
+{%- endmacro %}
+
+{% macro job_kv(selected) -%}
+<dl class="kv num">
+  <dt>큐 상태</dt><dd>{{ selected.queue_label }}{% if selected.group == 'fail' %} · 실패{% endif %}</dd>
+  <dt>작업 상태</dt><dd>{{ selected.state_label }}</dd>
+  <dt>제작 모드</dt><dd>{{ selected.mode }}</dd>
+  {%- if selected.topic_mode %}<dt>소재 모드</dt><dd>{{ selected.topic_mode }}</dd>{% endif %}
+  {%- if selected.channel %}<dt>업로드 채널</dt><dd>ID {{ selected.channel }}</dd>{% endif %}
+  <dt>슬롯</dt><dd>{% if selected.queue_state == 'running' %}{{ selected.slot }} 사용{% if selected.slot_id %} ({{ selected.slot_id }}){% endif %}{% else %}비점유 · {{ selected.slot }} 대상{% endif %}</dd>
+  {%- if selected.wait_no %}<dt>대기 순번</dt><dd>{{ selected.wait_no }} / {{ wait_total }}</dd>{% endif %}
+  <dt>우선순위</dt><dd>{{ selected.priority }}</dd>
+</dl>
+{%- endmacro %}
+
+{% macro q_row(j) -%}
+{% set is_sel = selected and selected.id == j.id %}
+<article class="card q{% if is_sel %} selected{% endif %}" id="job-{{ j.id }}" data-job="{{ j.id }}">
+  <div class="q-main">
+    <div class="q-title">
+      {%- if j.wait_no %}<span class="n">{{ j.wait_no }}</span>{% endif -%}
+      <a href="/queue?job={{ j.id }}#job-{{ j.id }}"{% if is_sel %} aria-current="true"{% endif %}>{{ j.name }}</a>
+      {%- for c in j.comps %}<span class="badge b-comp">{{ c }}</span>{% endfor -%}
+      {%- if j.badge %}{% set b = j.badge %}<span class="badge {{ b[1] }}">{{ icon(b[2], 'spin' if j.queue_state == 'running' else '') }}{{ b[0] }}</span>{% endif -%}
+      {%- if j.unverified %}<span class="badge b-rights">{{ icon('shield') }}권리 미확인 · 업로드 차단</span>{% endif %}
+    </div>
+    <div class="q-meta">
+      <span>모드 <b>{{ j.mode }}</b></span>
+      <span>상태 <b>{{ j.state_label }}</b></span>
+      {%- if j.channel %}<span>채널 <b class="num">{{ j.channel }}</b></span>{% endif %}
+      {%- if j.wait_no %}<span class="num">대기 순번 {{ j.wait_no }}</span>{% else %}<span class="num">{{ icon('clock') }} {{ j.elapsed }}</span>{% endif %}
+      {%- if j.queue_state == 'running' %}<span class="slot-tag">{{ j.slot }} 사용</span>{% elif j.group != 'fail' %}<span class="slot-tag muted">슬롯 비점유</span>{% endif %}
+    </div>
+    {%- if j.hold_reason %}<div class="inner"><span>대기 사유 <strong>{{ j.hold_reason }}</strong></span></div>{% endif %}
+    {%- if j.fail_reason %}<div class="inner t-fail"><span>실패 사유 <strong>{{ j.fail_reason }}</strong></span></div>{% endif %}
+    {%- if j.state in ('scheduled', 'uploading') %}<div class="inner"><span>업로드 중·예약됨 작업은 큐에서 취소할 수 없습니다. 원격 삭제는 사람 확인 후 따로 처리합니다.</span></div>{% endif %}
+  </div>
+  {%- if is_sel and picked %}
+  {# 모바일(~767)은 우측 열이 없어 고른 카드 안에 상세를 펼친다(제작 현황과 같은 방식). #}
+  <div class="only-mobile narrow-detail" aria-label="작업 상세">{{ job_kv(j) }}</div>
+  {%- endif %}
+  <div class="q-ctl" role="group" aria-label="{{ j.name }} 조작">
+    {%- if j.group == 'wait' %}
+      {% if j.first %}{{ off_btn(j, 'up', '위로') }}{% else %}{{ op_form(j, 'reorder', 'up', '위로', 'up') }}{% endif %}
+      {% if j.last %}{{ off_btn(j, 'down', '아래로') }}{% else %}{{ op_form(j, 'reorder', 'down', '아래로', 'down') }}{% endif %}
+      {% if j.first %}{{ off_btn(j, 'top', '맨 앞으로') }}{% else %}{{ op_form(j, 'reorder', 'top', '맨 앞으로', 'top') }}{% endif %}
+      {% if j.queue_state == 'paused' %}{{ op_form(j, 'resume', 'play', '재개') }}{% else %}{{ op_form(j, 'pause', 'pause', '일시정지') }}{% endif %}
+      {{ cancel_ctl(j) }}
+    {%- elif j.group == 'fail' %}
+      {{ op_form(j, 'retry', 'refresh', '재시도', cls='btn btn-secondary', text=True) }}
+    {%- else %}
+      {% if j.state == 'review' %}<a class="btn btn-link-sm" href="/inbox?job={{ j.id }}#card-{{ j.id }}">승인함에서 보기</a>{% endif %}
+      {{ cancel_ctl(j) }}
+    {%- endif %}
+  </div>
+</article>
+{%- endmacro %}
+
+{% block main %}
+<style>
+  /* 이 화면 전용(시안 design/wireframes/queue.html) — 토큰만 사용 */
+  .slots { display: grid; gap: calc(var(--spacing) * 3); grid-template-columns: minmax(0, 1fr); margin-bottom: calc(var(--spacing) * 4); }
+  @media (width >= 768px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .slot { gap: calc(var(--spacing) * 2); }
+  .slot .k-row { display: flex; align-items: baseline; gap: calc(var(--spacing) * 2); flex-wrap: wrap; }
+  .slot .bar { display: flex; gap: calc(var(--spacing) * 1); }
+  .slot .bar span { flex: 1; height: var(--size-progress); border-radius: var(--radius-pill); background: var(--color-input); }
+  .slot .bar span.on { background: var(--color-primary); }
+  .q-list { display: flex; flex-direction: column; gap: calc(var(--spacing) * 3); margin-bottom: calc(var(--spacing) * 4); }
+  .q { display: grid; gap: calc(var(--spacing) * 2); grid-template-columns: minmax(0, 1fr); align-items: start; padding: calc(var(--spacing) * 3); }
+  .q.selected { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+  .q-main { display: flex; flex-direction: column; gap: calc(var(--spacing) * 1.5); min-width: 0; }
+  .q-title { display: flex; align-items: center; gap: calc(var(--spacing) * 2); flex-wrap: wrap; }
+  .q-title .n { font-weight: 800; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+  .q-title a { font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+  .q-title a:hover { text-decoration: underline; }
+  .q-meta { display: flex; flex-wrap: wrap; gap: calc(var(--spacing) * 1) calc(var(--spacing) * 3); font-size: var(--text-label); color: var(--color-text-muted); }
+  .q-meta b { color: var(--color-text); font-weight: 600; }
+  .inner { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 2); font-size: var(--text-label); color: var(--color-text-muted); }
+  .inner strong { color: var(--color-text); }
+  .q-ctl { display: flex; flex-wrap: wrap; align-items: flex-start; gap: calc(var(--spacing) * 1); border-top: 1px solid var(--color-border); padding-top: calc(var(--spacing) * 2); }
+  .q-ctl .icon-btn { border: 1px solid var(--color-border); }
+  .q-ctl .icon-btn[aria-disabled="true"] { color: var(--color-disabled-fg); background: var(--color-disabled); border-color: transparent; cursor: not-allowed; }
+  .q-form { display: contents; }
+  .q-cancel > summary { color: var(--color-text); }
+  .q-cancel[open] { flex-basis: 100%; }
+  .q-cancel-box { margin-top: calc(var(--spacing) * 2); gap: calc(var(--spacing) * 2); }
+  .slot-tag { font-size: var(--text-label); font-weight: 600; }
+  @media (width >= 768px) {
+    .q { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+    .q-ctl { border-top: 0; padding-top: 0; justify-content: flex-end; max-width: calc(var(--spacing) * 60); }
+  }
+</style>
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">대기 큐</h1>
+    <p class="page-sub label muted">여러 작업의 제작 차례를 정합니다. AI 단계는 병렬, 렌더는 한 번에 하나씩.</p>
+  </div>
+  <a class="btn btn-secondary" aria-disabled="true" title="원클릭 제작 · 준비 중">{{ icon('plus') }}원클릭 제작에서 추가 · 준비 중</a>
+</div>
+
+{% if notice %}
+<div class="banner" role="alert" style="margin-bottom: calc(var(--spacing) * 4)">
+  {{ icon('warn') }}<span class="grow">{{ notice }}</span>
+  <a class="btn btn-secondary" href="/queue">{{ icon('refresh') }}새로 고침</a>
+</div>
+{% endif %}
+
+{% if error %}
+{% if not notice %}
+<div class="banner" role="alert">
+  {{ icon('warn') }}<span class="grow"><strong>큐 상태를 불러오지 못했습니다.</strong> DB 연결을 확인한 뒤 다시 시도하세요. 조작은 막혀 있습니다.</span>
+  <a class="btn btn-secondary" href="/queue">{{ icon('refresh') }}다시 시도</a>
+</div>
+{% endif %}
+{% else %}
+<div class="slots">
+  <section class="card slot" aria-label="AI 단계 슬롯">
+    <div class="card-head"><span class="label muted">AI 단계 슬롯 · 병렬</span></div>
+    <div class="k-row"><span class="score num">{{ slots.llm.used }}/{{ slots.llm.total if slots.llm.total is not none else '?' }}</span><span class="label muted">전체 수는 워커 설정값(<em>미확인</em>) · 사람 대기 작업은 슬롯을 쓰지 않음</span></div>
+  </section>
+  <section class="card slot" aria-label="렌더 슬롯">
+    <div class="card-head"><span class="label muted">렌더 (GPU · ffmpeg) 슬롯 · 직렬</span><span class="badge b-comp end">고정</span></div>
+    <div class="k-row"><span class="score num">{{ slots.gpu.used }}/{{ slots.gpu.total }}</span><span class="label muted">한 번에 1편만 렌더 · 다음 렌더 대기 {{ slots.gpu.wait }}</span></div>
+    <div class="bar" aria-hidden="true">{% for on in slots.gpu.bars %}<span{% if on %} class="on"{% endif %}></span>{% endfor %}</div>
+  </section>
+</div>
+
+{% if not total %}
+<div class="empty">
+  {{ icon('layers') }}
+  <p class="card-title">대기 중인 작업이 없습니다</p>
+  <p class="muted label">원클릭 제작이나 레이더 후보에서 작업을 추가하면 여기서 순서를 정할 수 있습니다. 완료된 작업은 제작 현황에서 봅니다.</p>
+  <a class="btn btn-secondary" href="/status">{{ icon('activity') }}제작 현황 보기</a>
+</div>
+{% else %}
+<div class="pills" role="group" aria-label="묶음" style="margin-bottom: calc(var(--spacing) * 3)">
+  {%- for g in groups %}<a class="pill" href="#group-{{ g.key }}">{{ g.label }} <span class="num">{{ g.rows|length }}</span></a>{% endfor %}
+</div>
+<div id="jobs">
+  {%- for g in groups %}
+  <h2 class="label muted" id="group-{{ g.key }}">{{ g.label }} <span class="count{% if g.key == 'fail' and g.rows %} hot{% endif %}">{{ g.rows|length }}</span></h2>
+  <div class="q-list">
+    {% for j in g.rows %}{{ q_row(j) }}{% else %}<p class="label muted">{{ g.label }} 작업이 없습니다.</p>{% endfor %}
+  </div>
+  {%- endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block aside %}
+<div class="aside-head"><h2 class="section-title">선택한 작업</h2>{% if selected %}{% for c in selected.comps %}<span class="badge b-comp">{{ c }}</span>{% endfor %}{% endif %}</div>
+{% if selected %}
+<p><strong>{{ selected.name }}</strong></p>
+{{ job_kv(selected) }}
+<h3 class="label muted">큐 기록</h3>
+{% if events %}<ul class="log num">{% for e in events %}<li{% if e.failed %} class="t-fail"{% endif %}><span>{{ e.label }}{% if e.message %} · {{ e.message }}{% endif %}</span><span>{{ e.at }}</span></li>{% endfor %}</ul>
+{% else %}<p class="label muted">기록이 아직 없습니다.</p>{% endif %}
+{% else %}
+<p class="label muted">{% if error %}불러오지 못했습니다.{% else %}선택할 작업이 없습니다.{% endif %}</p>
+{% endif %}
+<h3 class="label muted">취소하면</h3>
+<dl class="kv">
+  <dt>대기 · 일시정지</dt><dd>큐에서 빠집니다.</dd>
+  <dt>실행 중</dt><dd>즉시 멈추고 슬롯이 풀립니다.</dd>
+  <dt>사람 대기</dt><dd>산출물은 보관하고 큐에서 뺍니다.</dd>
+  <dt>업로드 중 · 예약됨</dt><dd>여기서 취소할 수 없습니다(원격 삭제는 사람 확인 후 따로).</dd>
+</dl>
+{% endblock %}

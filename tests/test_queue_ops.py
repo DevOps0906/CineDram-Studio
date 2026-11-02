@@ -22,6 +22,10 @@ class OpsBase(WorkerTestBase):
         if state:
             self.c.execute("UPDATE jobs SET state=? WHERE id=?", (state, job_id))
 
+    def order(self):
+        return [r[0] for r in self.c.execute(
+            "SELECT id FROM jobs WHERE queue_state IN ('waiting','paused') ORDER BY priority DESC, id")]
+
     def race(self, fn, job_id, n=2):
         """n 개 연결이 같은 조작을 동시에 부른다 → (성공 수, 실패 예외 목록)."""
         barrier = threading.Barrier(n)
@@ -78,6 +82,49 @@ class TransitionTest(OpsBase):
         for bad in ("5", 1.5, True):
             with self.assertRaises(qo.QueueOpError):
                 qo.reorder(self.c, b, bad)
+
+    def test_move_tied_one_step(self):
+        a, b, c = self.add_job(), self.add_job(), self.add_job()  # [A0,B0,C0]
+        self.assertEqual(qo.move(self.c, c, "up"), "waiting")
+        self.assertEqual(self.order(), [a, c, b])
+        prios = [self.row(j, "priority")[0] for j in (a, c, b)]
+        self.assertEqual(len(set(prios)), 3)  # 동률 해소
+        self.assertIn("순서 변경 up", self.events(c)[-1][2])
+        self.assertEqual(self.events(c)[-1][:2], ("waiting", "waiting"))
+        self.assertEqual(wk.claim(self.c, "w1", [self.root])["id"], a)  # 워커도 같은 순서
+
+    def test_move_down_top_and_paused(self):
+        a, b, c = self.add_job(), self.add_job(), self.add_job()
+        qo.pause(self.c, b)
+        qo.move(self.c, a, "down")
+        self.assertEqual(self.order(), [b, a, c])
+        qo.move(self.c, c, "top")
+        self.assertEqual(self.order(), [c, b, a])
+        self.assertEqual(self.row(b)[0], "paused")  # 상태는 그대로
+
+    def test_move_edges_noop_and_rejects(self):
+        a, b = self.add_job(), self.add_job()
+        before = len(self.events(a))
+        qo.move(self.c, a, "up")
+        qo.move(self.c, a, "top")
+        qo.move(self.c, b, "down")
+        self.assertEqual(self.order(), [a, b])
+        self.assertEqual(len(self.events(a)), before)
+        with self.assertRaises(qo.QueueOpError):
+            qo.move(self.c, a, "left")
+        with self.assertRaises(qo.JobNotFound):
+            qo.move(self.c, 999, "up")
+        for qs in ("running", "held_human", "held_resource", "finished"):
+            self.set_state(b, qs)
+            with self.assertRaises(qo.InvalidTransition):
+                qo.move(self.c, b, "up")
+
+    def test_move_keeps_other_groups(self):
+        a, b = self.add_job(), self.add_job()
+        h = self.add_job(priority=4)
+        self.set_state(h, "held_human")
+        qo.move(self.c, b, "up")
+        self.assertEqual(self.row(h, "priority")[0], 4)
 
     def test_retry_failed_only(self):
         j = self.add_job()
@@ -241,6 +288,42 @@ class ConcurrencyTest(OpsBase):
         self.assertEqual((ok, errors), (4, []))  # 순서 변경은 겹쳐도 모두 기록된다
         self.assertEqual(len(self.events(j)), 4)
         self.assertEqual(self.row(j, "priority")[0], 7)
+
+    def test_move_race_serialized(self):
+        a, b, c = self.add_job(), self.add_job(), self.add_job()
+        ok, errors = self.race(lambda conn, jid: qo.move(conn, jid, "up"), c, n=2)
+        self.assertEqual((ok, errors), (2, []))
+        self.assertEqual(self.order(), [c, a, b])  # 두 번 다 한 칸씩
+        self.assertEqual(len(self.events(c)), 2)
+
+    def test_move_race_different_jobs_consistent(self):
+        for _ in range(3):
+            self.c.execute("DELETE FROM job_events")
+            self.c.execute("DELETE FROM jobs")
+            a, b, c = self.add_job(), self.add_job(), self.add_job()
+            barrier = threading.Barrier(2)
+            errors = []
+
+            def run(jid):
+                conn = wk.migrate_mod.connect(self.db)
+                try:
+                    barrier.wait()
+                    qo.move(conn, jid, "up")
+                except Exception as e:  # 스레드 예외를 본문에서 확인
+                    errors.append(e)
+                finally:
+                    conn.close()
+            ts = [threading.Thread(target=run, args=(j,)) for j in (b, c)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join(30)
+            self.assertEqual(errors, [])
+            # b 먼저: [b,a,c]→[b,c,a] / c 먼저: [a,c,b]→[a,b,c]
+            self.assertIn(self.order(), ([b, c, a], [a, b, c]))
+            self.assertEqual((len(self.events(b)), len(self.events(c))), (1, 1))  # 둘 다 실제로 이동
+            prios = [r[0] for r in self.c.execute("SELECT priority FROM jobs")]
+            self.assertEqual(len(set(prios)), 3)
 
     def test_cancel_vs_claim(self):
         """집기와 대기 취소가 겹쳐도 결과는 둘 중 하나로 일관된다."""

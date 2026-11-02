@@ -60,6 +60,42 @@ def reorder(conn, job_id, priority):
     return qs
 
 
+MOVE_DIRECTIONS = ("up", "down", "top")
+MOVABLE = ("waiting", "paused")  # 순서를 바꿀 수 있는 묶음(화면의 '대기')
+
+
+def move(conn, job_id, direction):
+    """한 칸 이동(up·down) 또는 맨 앞(top). 한 트랜잭션에서 대기·일시정지 묶음을 워커 순서
+    (priority DESC, id)로 읽고, 옮긴 뒤 순서대로 서로 다른 priority 를 다시 매긴다(동률 해소).
+    값이 바뀐 행만 쓰고, 이동한 작업에 job_events 를 남긴다. 이미 끝(맨 앞·맨 뒤)이면 변경 없음."""
+    if direction not in MOVE_DIRECTIONS:
+        raise QueueOpError(f"이동 방향은 {MOVE_DIRECTIONS} 중 하나여야 합니다: {direction!r}")
+    with _Tx(conn):
+        qs, _, _ = _current(conn, job_id)
+        if qs not in MOVABLE:
+            raise InvalidTransition(f"대기·일시정지 작업만 순서를 바꿀 수 있습니다: {job_id} ({qs})")
+        marks = ", ".join("?" for _ in MOVABLE)
+        rows = conn.execute(
+            f"SELECT id, priority, queue_state, state FROM jobs WHERE queue_state IN ({marks}) "
+            "ORDER BY priority DESC, id", MOVABLE).fetchall()
+        order = [r[0] for r in rows]
+        i = order.index(job_id)
+        j = {"up": i - 1, "down": i + 1, "top": 0}[direction]
+        if j < 0 or j >= len(order) or j == i:
+            return qs
+        order.insert(j, order.pop(i))
+        base = min(r[1] for r in rows)
+        current = {r[0]: r for r in rows}
+        n = len(order)
+        for k, jid in enumerate(order):
+            new = base + (n - 1 - k)
+            _, old, row_qs, row_st = current[jid]
+            if new != old:
+                _update(conn, jid, ["priority=?"], [new], row_qs, row_st)
+        _event(conn, job_id, qs, qs, f"사람 조작: 순서 변경 {direction} (순번 {i + 1}→{j + 1})")
+    return qs
+
+
 def pause(conn, job_id):
     """일시정지: waiting → paused(슬롯 비점유, 작업 상태 유지)."""
     with _Tx(conn):
