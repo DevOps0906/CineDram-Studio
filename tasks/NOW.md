@@ -1,13 +1,13 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
 - 갱신: 2026-11-02
-- 현재 작업: 병렬 개발 2차 — 상태: 완료·커밋(CSRF, 큐 사람 조작, 제작 현황·승인함 GET 화면)
-- 마지막으로 한 일: dev-5 큐 조작(worker/queue_ops.py), CSRF(server/csrf.py, 비GET은 require_csrf 강제), /status·/inbox(server/views.py, CINEDRAM_DB 환경변수)
-- 다음 한 걸음: 큐 조작 POST(대기 큐 화면 /queue, connect_rw+queue_ops+require_csrf) · 승인함 승인 버튼(승인 경로 = challenger 먼저, approve는 사람만) · 만들기·원클릭 화면
-- 열린 결정(사용자 확인 필요): mute 대사 컷 C5-9 처리, 자동 SRT의 C3-3 허용 폭, 음량·검은 화면 규칙 ID, LLM 방식·슬롯 병렬, 남의 콘텐츠 재사용 범위, 의역 범위, 구글 계정 수 상한, 한국어 서체, 토큰 사본 동기화(현재 시안 CSS를 /static에서 직접 서빙)
-- 주의: 업로드·approve는 사람만. 캡처는 .captures/(삭제 예정). Codex 한도 2026-11-04까지 → 리뷰는 reviewer
-- 팀장 판단 메모: 폼 상한(10MB·파일 5·필드 200)은 임시값, 영상 업로드 때 재정의. FastAPI 올릴 때 include_router 지연 객체(iter_route_contexts) 감시 테스트 재확인. 포커스 보존·드로어는 브라우저 수동 확인 필요(shot은 ?쿼리 URL 불가). 워커 로그 원본 본문 제외 여부 재검토
-- SDLC 단계: 06 구현 (전체 완성도 약 49%, README 참조)
+- 현재 작업: 병렬 개발 3차 — 상태: 완료·커밋(규칙 C10-4·5+산출물 검사, /create, /queue, 영상 승인)
+- 마지막으로 한 일: 브라우저(실제 앱+샘플 DB)에서 포커스 보존·패널·메뉴 Escape·영상 승인 POST(쿠키·Origin·CSRF) 확인
+- 다음 한 걸음: 컷표 연결(사람 대기 작업에 plan_path 지정 → waiting) · 원클릭 화면 / 개발 6 LLM(착수 전 "승인은 사람만" 기술 차단 결정)
+- 열린 결정(사용자 확인 필요): "승인은 사람만" 기술 차단 범위(추천: 개발 6에서 훅+헤드리스 도구 제한), C10-4·5 기준값(pix_th 0.10 포함) 확정, LLM 방식·슬롯 수 설정 위치, CINEDRAM_ROOTS 환경변수 확정, 남의 콘텐츠 재사용 범위, 의역 범위, 구글 계정 수 상한, 한국어 서체, 토큰 사본 동기화
+- 주의: 업로드·approve(기획)는 사람만 — 승인함 [승인]은 영상 승인(review→approved, job_events만), 엔진 approve 미호출. 캡처는 .captures/(삭제 예정). Codex 한도 2026-11-04까지
+- 팀장 판단 메모: 영상 승인 뒤 queue_state 정리 규칙 확인(렌더 완료 작업은 finished여야 워커가 다시 집지 않음). C10-5는 실제 드라마 원본으로 어두운 장면 오탐 확인 필요. 폼 상한 임시값. views_queue가 views 내부 함수에 결합(공용 helper로 정리 후보). shot은 ?쿼리 URL 불가
+- SDLC 단계: 06 구현 (전체 완성도 약 51%, README 참조)
 - 담당 모델/역할: builder·reviewer·challenger(Opus)
-- 테스트 상태: 통과 (.venv unittest 231개, skip 3)
-- 남은 작업: POST 화면(큐·승인·만들기), 6 LLM, 7 환경설정, 8 업로드, 자동 검수 2종(규칙 대기), 실제 소스 검증(개발 1)
+- 테스트 상태: 통과 (.venv unittest 296개, skip 1 = 심볼릭 링크 권한)
+- 남은 작업: 컷표 연결·원클릭, 6 LLM, 7 환경설정·레이더, 8 채널·업로드, 실제 소스 검증(개발 1)
