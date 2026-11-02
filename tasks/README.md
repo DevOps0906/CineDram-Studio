@@ -23,6 +23,7 @@
 | 2026-11-02 | ~/.claude/nomad/bin/sql2erd | ALTER TABLE ADD COLUMN 미반영 → erd.mmd에 jobs.plan_path 없음, python3 스텁으로 bin 실행 실패 | NOMAD 본체 도구 수정 |
 | 2026-11-02 | ~/.claude/nomad/bin/plan2spec | input·select·note·row·`button:더 보기` 등 블록 어휘를 몰라 필수 구조 🔴 오탐(18건 유지) | NOMAD 본체 어휘 보강 |
 | 2026-11-02 | ~/.claude/nomad/bin/py/shot.py | 500px 미만은 file:// iframe 래퍼로 찍는데 CSP frame-ancestors 'none'·X-Frame-Options DENY인 페이지는 깨진 아이콘만 나옴 → 375 모바일 확인 불가 | 도구를 `--force-device-scale-factor=2 --window-size=750`(CSS 375px) 방식으로 바꾸기(NOMAD 본체) |
+| 2026-11-02 | `.captures/`(숨김, git 제외) | 외부 강의 캡처 25장(중복 1장 `_중복_images2/` 포함). 프로그램 완성·안정화 후 삭제 예정 | 삭제 전 `grep -rn "\.captures/" docs design`로 근거 링크(docs/13·15, design/DESIGN.md·tokens.css)를 글 설명으로 바꾼 뒤 폴더·`.gitignore` 줄 삭제 |
 | 2026-11-02 | worker/__main__.py | 기동 거부 메시지가 stderr cp949로 출력(테스트는 PYTHONIOENCODING으로 우회) | 서버가 워커를 자식으로 띄울 때 인코딩 고정 |
 
 ## 교훈 (다음 작업에 그대로 적용할 것만, 20줄 이내 유지)
