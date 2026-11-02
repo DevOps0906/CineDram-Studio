@@ -21,12 +21,30 @@
       "Read(./**/package-lock.json)",
       "Bash(*shortsflow.py approve*)",
       "PowerShell(*shortsflow.py approve*)",
+      "Bash(*shortsflow.py \"approve\"*)",
+      "Bash(*shortsflow.py 'approve'*)",
+      "PowerShell(*shortsflow.py \"approve\"*)",
+      "PowerShell(*shortsflow.py 'approve'*)",
       "Bash(curl*:8765*)",
       "Bash(*Invoke-WebRequest*:8765*)",
       "PowerShell(*Invoke-WebRequest*:8765*)",
       "PowerShell(*Invoke-RestMethod*:8765*)",
       "Bash(sqlite3*studio.db*)",
       "PowerShell(*sqlite3*studio.db*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python.exe\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_approve.py\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
