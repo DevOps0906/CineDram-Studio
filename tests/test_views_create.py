@@ -130,7 +130,10 @@ class CreatePostTest(CreateTestBase):
         self.assertEqual(job[0]["state"], "queued")
         self.assertEqual(job[0]["queue_state"], "held_human")  # 컷표 없이 워커가 집지 않게
         self.assertEqual(json.loads(job[0]["rule_set"]), ["common", "drama"])
-        self.assertEqual(len(self.rows("SELECT * FROM job_events")), 1)
+        self.assertEqual(job[0]["exec_mode"], "auto_render")  # insert_job 기본값
+        events = self.rows("SELECT message FROM job_events")
+        self.assertEqual(len(events), 1)
+        self.assertTrue(events[0]["message"].startswith("만들기 화면에서 생성"))
         self.assertIn(f"job={job[0]['id']}", r.headers["location"])
         status = self.client.get(r.headers["location"])
         self.assertIn("달빛 수선소 · E04", status.text)

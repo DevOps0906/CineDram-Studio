@@ -99,7 +99,7 @@ def _check_path(raw, roots, suffixes):
     return str(path), None
 
 
-def _validate(form, roots):
+def validate_form(form, roots):
     errors, clean = {}, {}
     title = form["work_title"]
     if not title:
@@ -134,8 +134,10 @@ def _validate(form, roots):
     return clean, errors
 
 
-def _insert(conn, v):
-    """works(같은 작품명은 재사용)·sources·jobs·첫 job_events 를 한 트랜잭션으로 만든다. job id 반환.
+def insert_job(conn, v, exec_mode="auto_render", event_message=None):
+    """works(같은 작품명은 재사용)·sources·jobs(exec_mode 포함)·첫 job_events 를 한 트랜잭션으로 만든다. job id 반환.
+
+    event_message 가 없으면 만들기 화면 기본 문구를 첫 이벤트로 남긴다.
 
     같은 작품·회차·원본 영상의 작업이 이미 있으면(중복 제출) 새로 만들지 않고 그 job id 를 돌려준다.
     """
@@ -159,13 +161,13 @@ def _insert(conn, v):
             (work_id, v["episode"], v["video_path"], v["srt_path"], v["rights_status"]),
         ).lastrowid
         job_id = conn.execute(
-            "INSERT INTO jobs(source_id, rule_set, state, queue_state, hold_reason, engine_cmd, slot_kind)"
-            " VALUES (?, ?, 'queued', 'held_human', ?, 'check', 'gpu')",
-            (source_id, json.dumps([BASE_RULE, v["comp"]]), HOLD_REASON),
+            "INSERT INTO jobs(source_id, rule_set, exec_mode, state, queue_state, hold_reason, engine_cmd, slot_kind)"
+            " VALUES (?, ?, ?, 'queued', 'held_human', ?, 'check', 'gpu')",
+            (source_id, json.dumps([BASE_RULE, v["comp"]]), exec_mode, HOLD_REASON),
         ).lastrowid
         conn.execute(
             "INSERT INTO job_events(job_id, from_state, to_state, message) VALUES (?, NULL, 'queued', ?)",
-            (job_id, f"만들기 화면에서 생성 · {HOLD_REASON}"),
+            (job_id, event_message or f"만들기 화면에서 생성 · {HOLD_REASON}"),
         )
         conn.execute("COMMIT")
     except BaseException:
@@ -194,13 +196,13 @@ def create_submit(
 ):
     form = {"work_title": work_title.strip(), "episode": episode.strip(), "video_path": video_path.strip(),
             "srt_path": srt_path.strip(), "rights_status": rights_status, "comp": comp}
-    clean, errors = _validate(form, roots)
+    clean, errors = validate_form(form, roots)
     if errors:
         return _render(request, db_path, roots, form, errors, status_code=422)
     try:
         conn = db.connect_rw(db_path)
         try:
-            job_id = _insert(conn, clean)
+            job_id = insert_job(conn, clean)
         finally:
             conn.close()
     except (db.DBUnavailable, sqlite3.Error) as exc:

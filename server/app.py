@@ -5,7 +5,7 @@ API 문서(/docs·/redoc·/openapi.json)는 노출 면을 줄이려고 끈다. d
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from server import views, views_create, views_queue
+from server import views, views_create, views_oneclick, views_queue
 from server.middleware import LocalSecurityMiddleware
 from server.security import new_server_secret
 
@@ -29,6 +29,7 @@ def create_app(port=PORT):
     app.include_router(views.router)  # DB 경로는 views.get_db_path(CINEDRAM_DB)
     app.include_router(views_create.router)
     app.include_router(views_queue.router)
+    app.include_router(views_oneclick.router)
 
     return app
 

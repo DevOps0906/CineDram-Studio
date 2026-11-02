@@ -15,7 +15,7 @@
 <body data-page="{{ page }}">
 {%- set nav = [
   ('홈', [('dashboard', None, 'home', '홈')]),
-  ('제작', [('oneclick', None, 'zap', '원클릭 제작'), ('create', '/create', 'plus', '만들기'), ('link', None, 'link', '링크로 만들기'),
+  ('제작', [('oneclick', '/make/oneclick', 'zap', '원클릭 제작'), ('create', '/create', 'plus', '만들기'), ('link', None, 'link', '링크로 만들기'),
             ('queue', '/queue', 'layers', '대기 큐'), ('status', '/status', 'activity', '제작 현황')]),
   ('검수', [('inbox', '/inbox', 'inbox', '승인함')]),
   ('소재', [('radar', None, 'radar', '레이더')]),
