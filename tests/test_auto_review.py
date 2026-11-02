@@ -109,6 +109,35 @@ class FirstSoundC3_3(ProjectCase):
         srt = [(0.15, 2.5, "지금 뭐라고 했어요")] + BASE_SRT[1:]
         self.assertIn("C3-3", ids(review(self, srt=srt), "error"))
 
+    def _auto_check(self, lead):
+        p = plan_dict()
+        p["meta"]["srt_kind"] = "auto"
+        self.write_project(p, [(lead, 2.5, "지금 뭐라고 했어요")] + BASE_SRT[1:])
+        return self.cli("check", str(self.plan_path))
+
+    def test_auto_srt_lead_within_half_second_warns(self):
+        # 자동 받아쓰기 SRT 는 경계 ±0.5초(P8-2) → 0.4초 첫 소리는 C3-3 warn(차단 아님)
+        code, text = self._auto_check(0.4)
+        self.assertIn("△ [C3-3]", text)
+        self.assertIn("자동 받아쓰기 경계 — 확인 필요", text)
+        self.assertNotIn("✗ [C3-3]", text)
+        self.assertEqual(code, 0, text)
+
+    def test_auto_srt_lead_within_open_pad_passes(self):
+        code, text = self._auto_check(0.1)
+        self.assertNotIn("C3-3]", text)
+        self.assertEqual(code, 0, text)
+
+    def test_auto_srt_lead_over_half_second_blocks(self):
+        code, text = self._auto_check(0.6)
+        self.assertIn("✗ [C3-3]", text)
+        self.assertEqual(code, 1, text)
+
+    def test_manual_srt_keeps_open_pad(self):
+        self.write_project(srt=[(0.4, 2.5, "지금 뭐라고 했어요")] + BASE_SRT[1:])
+        code, text = self.cli("check", str(self.plan_path))
+        self.assertIn("✗ [C3-3]", text)
+
 
 class AutoSrtHeaderP8_2(ProjectCase):
     def test_auto_srt_warning_header(self):

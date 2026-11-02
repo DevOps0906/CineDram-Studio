@@ -32,6 +32,10 @@ ORIG_GAIN = 0.15    # A10-8
 LEN_MIN, LEN_MAX = 20.0, 59.0   # C7-1
 OPEN_PAD, CLOSE_PAD, NEIGHBOR_GAP = 0.1, 0.2, 0.3   # P8-3 대사 컷 열기·닫기 여유, 이웃 줄 간격
 AUTO_SRT_NOTE = "자동 받아쓰기 SRT — 컷 경계 ±0.5초 확인 필요"   # P8-2
+AUTO_LEAD = 0.5     # C3-3 자동 받아쓰기 SRT 의 후킹 첫 소리 허용 폭 (P8-2 ±0.5초)
+# 렌더 산출물 검사 — 기준값 사람 확정 대기
+LOUD_I, LOUD_TOL, LOUD_TP = -14.0, 1.0, -1.0   # C10-4 통합 LUFS ±1, 트루 피크 dBTP 이하
+BLACK_MIN, BLACK_PIX = 0.5, 0.10               # C10-5 검은 프레임 최소 길이(초)·픽셀 밝기 문턱
 HERE = Path(__file__).resolve().parent
 
 
@@ -302,12 +306,14 @@ def check(plan, resolved, subs, issues=None, max_narr_pct=35.0):
     return iss
 
 
-def review_voice(resolved, subs, src_lines):
+def review_voice(resolved, subs, src_lines, srt_kind="manual"):
     """docs/13 §10 자동 검수 — 원본 SRT(대사 소리)와 나레이션 음성 구간을 기준으로 본다.
 
-    C5-9 자막이 소리보다 먼저 뜨지 않나 · P8-3/C6-1 대사 컷 열기·닫기 여유와 끝음절 잘림 · C3-3 후킹 앞 무음.
+    C5-9 자막이 소리보다 먼저 뜨지 않나 · P8-3/C6-1 대사 컷 열기·닫기 여유와 끝음절 잘림 · C3-3 후킹 앞 무음
+    (허용 폭: 자동 받아쓰기 SRT 면 AUTO_LEAD, 아니면 OPEN_PAD).
     """
     iss, eps = [], 1e-3
+    lead = AUTO_LEAD if srt_kind == "auto" else OPEN_PAD
     lines = sorted(src_lines)
     voice = []   # 타임라인 위 소리 구간
     for r in resolved:
@@ -341,8 +347,10 @@ def review_voice(resolved, subs, src_lines):
             need = CLOSE_PAD if gap >= NEIGHBOR_GAP else gap / 2
             if b - last[1] < need - eps:
                 iss.append(("error", "P8-3", f"컷 {no}: 끝음절 뒤 여유 {b - last[1]:.2f}초 < {need:.2f}초"))
-        if r is resolved[0] and first[0] - a > OPEN_PAD + eps:
+        if r is resolved[0] and first[0] - a > lead + eps:
             iss.append(("error", "C3-3", f"컷 {no}: 후킹 첫 소리가 {first[0] - a:.2f}초에 시작 — 앞 무음(첫 소리는 0초)"))
+        elif r is resolved[0] and first[0] - a > OPEN_PAD + eps:
+            iss.append(("warn", "C3-3", f"컷 {no}: 자동 받아쓰기 경계 — 확인 필요, 후킹 첫 소리 {first[0] - a:.2f}초(±{AUTO_LEAD}초 안)"))
     for i, (s, e, tx) in enumerate(subs, 1):
         if not any(vs - eps <= s < ve for vs, ve in voice):
             iss.append(("error", "C5-9", f"자막 {i}: {s:.2f}초 — 소리보다 먼저 뜬다 «{tx[:12]}»"))
@@ -418,6 +426,35 @@ def ffprobe_duration(path):
     return float(r.stdout.strip())
 
 
+def review_output(path, region=None):
+    """렌더 산출물 검사(docs/13 §10) — C10-4 음량(loudnorm 측정만, 보정 안 함) warn · C10-5 검은 프레임 error.
+
+    region=(w, h, x, y) 면 그 영역(영상 자리)만 검은 화면을 본다 — 템플릿 여백은 의도된 배경이다.
+    ffmpeg 가 없으면 건너뛴다(빈 목록).
+    """
+    if not shutil.which("ffmpeg"):
+        return []
+    vf_ = (f"crop={region[0]}:{region[1]}:{region[2]}:{region[3]}," if region else "") + \
+        f"blackdetect=d={BLACK_MIN}:pix_th={BLACK_PIX}"
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-vf", vf_,
+                        "-af", f"loudnorm=I={LOUD_I}:TP={LOUD_TP}:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode:
+        raise RuntimeError(f"ffmpeg 검사 실패: {path}\n{r.stderr[-1800:]}")
+    iss = []
+    m = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", r.stderr)
+    if m:
+        st = json.loads(m.group(0))
+        li, tp = float(st["input_i"]), float(st["input_tp"])
+        if abs(li - LOUD_I) > LOUD_TOL:
+            iss.append(("warn", "C10-4", f"통합 음량 {li:.1f} LUFS — 목표 {LOUD_I:.0f} ±{LOUD_TOL:.0f} 밖"))
+        if tp > LOUD_TP:
+            iss.append(("warn", "C10-4", f"트루 피크 {tp:.1f} dBTP > {LOUD_TP:.0f} dBTP"))
+    for s, e in re.findall(r"black_start:\s*([\d.]+)\s+black_end:\s*([\d.]+)", r.stderr):
+        iss.append(("error", "C10-5", f"검은 화면 {float(s):.2f}~{float(e):.2f}초 ({float(e) - float(s):.2f}초) — 기획에서 컷 경계 수정"))
+    return iss
+
+
 def cmd_tts_measure(plan, tts_dir):
     d = plan["_dir"]
     tdir = (d / tts_dir) if not Path(tts_dir).is_absolute() else Path(tts_dir)
@@ -459,7 +496,7 @@ def do_recalc(plan, write=True):
         iss.append(("error", "P8-1", "원본 SRT 가 없다 — 자막 시각의 근거가 없다"))
     subs = build_subs(plan, resolved, lines)
     iss = check(plan, resolved, subs, iss, plan["meta"].get("max_narration_pct", 35.0))
-    iss += review_voice(resolved, subs, lines)
+    iss += review_voice(resolved, subs, lines, plan["meta"].get("srt_kind", "manual"))
     if write:
         d = plan["_dir"]
         write_srt(d / "자막.srt", subs)
@@ -681,6 +718,10 @@ def cmd_render(plan, out_name, template="topbottom"):
          "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
          "-t", f"{total:.3f}", str(out)], cwd=work)
     print(f"✓ {out}  ({total:.1f}초, {W}x{H})")
+    print("산출물 검사(C10-4 음량 · C10-5 검은 화면):")
+    if print_issues(review_output(out, (v["w"], v["h"], v["x"], v["y"]))):
+        print("검은 화면(C10-5)은 영상에서 지우지 않는다 — 기획에서 컷 경계를 고친 뒤 재승인하세요.")
+        return 1
     print("다음: 영상을 직접 확인하고 승인함에서 승인하세요. 업로드는 항상 사람이 합니다.")
     return 0
 
