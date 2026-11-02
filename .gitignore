@@ -12,8 +12,7 @@ id_rsa*
 id_ed25519*
 
 # 외부 강의 캡처(제3자 저작물·초상) — 올리지 않는다
-_원본_무료판/images/
-_원본_무료판/images2/
+.captures/
 
 # 생성 산출물(mmd-check 렌더링 SVG)
 docs/**/*.svg
@@ -25,3 +24,6 @@ docs/**/*.svg
 # Python 캐시
 __pycache__/
 *.pyc
+
+# Python 가상환경
+.venv/

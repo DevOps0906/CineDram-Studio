@@ -1,7 +1,7 @@
 /* tokens.css — CineDram Studio 운영 화면 디자인 시스템 정답 소스 (Tailwind CSS v4.3.3, CSS 우선 설정)
    DESIGN_TOKENS.md 표는 design-preview --md 로 재생성한다. 손으로 고치지 않는다.
    다크 전환은 <html class="dark"> 한 가지로 통일. 컴포넌트에는 hex·px를 쓰지 않고 이 토큰만 쓴다.
-   (추정) 표시 값은 벤치마크 캡처(_원본_무료판/images, 꿀통레이더 화면)에서 눈으로 추정한 값 — 사람 확정 대기. */
+   (추정) 표시 값은 벤치마크 캡처(.captures/, 꿀통레이더 화면)에서 눈으로 추정한 값 — 사람 확정 대기. */
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
