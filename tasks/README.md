@@ -7,9 +7,9 @@
 | task-004 | 화면 필수 구조 검토(진짜 11·오탐 7, tasks/review-task-004.md). 결정: ①탭=필터 ③CH1→목록 ④ST4 명시 저장+확인, ②RD3 보류 | W1 | — | 낮음 | planner | 완료 |
 | task-010 | 개발 3: 만들기·원클릭·제작 현황·승인함 화면(approve 경로에서 jobs.plan_hash 갱신·source_video 검사 포함) | W4 | task-006·007·009 | 보통(승인 경로 높음) | builder | 완료 |
 | task-009 | 화면 표 보완(task-004 진짜 누락 11건 반영, docs/13·14). 남은 plan2spec 🔴는 도구 어휘 한계·CH1 의도적 예외 | W4 | task-004 | 낮음 | planner | 완료 |
-| task-005 | 개발 0: FastAPI 골격·core 공용 모듈·의존성 고정(정본 tasks/plan-dev0-2.md, challenger 반영). 리뷰 2건 반영, 테스트 103 통과 | W2 | task-002 | 높음 | builder | 완료(미커밋) |
-| task-006 | 개발 2a: 보안 골격(ADR-003 체크리스트 1~7). 0.0.0.0 실기동 차단 확인, 리뷰 반영(본문 상한·CSRF TTL·보안 헤더) | W3 | task-005 | 높음 | builder | 완료(미커밋) |
-| task-007 | 개발 2b: 상태머신·큐 집기·최소 워커(GPU 슬롯 1, 포트 없음). 리뷰 반영(poison job·출력 마스킹·source_video 경로), 통합 테스트 166 통과 | W3 | task-005 | 높음 | builder·tester | 완료(미커밋) |
+| task-005 | 개발 0: FastAPI 골격·core 공용 모듈·의존성 고정(정본 tasks/plan-dev0-2.md, challenger 반영). 리뷰 2건 반영, 테스트 103 통과 | W2 | task-002 | 높음 | builder | 완료 |
+| task-006 | 개발 2a: 보안 골격(ADR-003 체크리스트 1~7). 0.0.0.0 실기동 차단 확인, 리뷰 반영(본문 상한·CSRF TTL·보안 헤더) | W3 | task-005 | 높음 | builder | 완료 |
+| task-007 | 개발 2b: 상태머신·큐 집기·최소 워커(GPU 슬롯 1, 포트 없음). 리뷰 반영(poison job·출력 마스킹·source_video 경로), 통합 테스트 166 통과 | W3 | task-005 | 높음 | builder·tester | 완료 |
 | task-011 | 개발 4: 자동 검수 6가지(docs/13 §10) — 규칙 A10-12~18 확정(2026-11-02, -14 LUFS·-1 dBTP, 무음 0.3초·첫 소리 0.1초·검은 화면 1프레임), rules 반영 중 | W5 | task-010·규칙 반영 | 보통 | planner→builder | 완료 |
 | task-012 | 개발 5: 대기 큐 화면(R16~R20, 실행 중 취소) — 정본 tasks/plan-dev5.md. 테스트 361 | W5 | task-010 | 보통 | builder | 완료 |
 | task-013 | 개발 6: LLM 연동(ADR-002) + llm_calls + 한도 | W6 | 결정 완료(2026-11-03): API 키만·월 $20·SRT는 권리 확인 작업만. 1차 = core/llm.py·0004·승인 차단 훅(완료), 2차 = 워커 단계·화면 연결(대기) | 높음 | builder | 진행 |

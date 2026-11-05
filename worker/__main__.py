@@ -5,9 +5,9 @@ import sys
 import time
 from pathlib import Path
 
-from core import paths
+from core import llm, paths
 
-from . import queue, runner
+from . import queue, runner, steps
 from .lock import AlreadyRunning, SingleInstance
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,9 +27,13 @@ def run_once(conn, root=None, timeout=runner.ENGINE_TIMEOUT):
     """대기 작업 1건 처리. 처리했으면 job id, 없으면 None. root 기본값은 paths.default_root()."""
     root = root if root is not None else paths.default_root()
     job_id = queue.claim_next(conn)
+    if job_id is not None:
+        runner.run_job(conn, job_id, root, timeout)
+        return job_id
+    job_id = steps.claim_next_llm(conn)  # 렌더할 작업이 없을 때 AI 단계(컷표 없는 작업)
     if job_id is None:
         return None
-    runner.run_job(conn, job_id, root, timeout)
+    steps.run_step(conn, job_id, root)
     return job_id
 
 
@@ -60,6 +64,9 @@ def main(argv=None, db_path=None, lock_path=LOCK_PATH, root=None):
             return 1
         for job_id in queue.recover_running(conn):
             print(f"복구: 작업 {job_id} running -> waiting")
+        stale = llm.recover_stale(conn)  # 죽은 워커가 남긴 started AI 호출 행 정리
+        if stale:
+            print(f"복구: AI 호출 {stale}건 started -> error")
         while True:
             if run_once(conn, root) is None:
                 if a.once:

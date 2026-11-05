@@ -1,7 +1,7 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
 - 갱신: 2026-11-03(개발 6 1차)
-- 현재 작업: 없음 — 개발 6 1차 완료·푸시(core/llm.py·0004 llm_calls·승인 차단 훅·ADR-002 API 키만). 2차(워커 단계 topic·flow·plan·subtitle 연결, recover_stale 워커 기동 연결, 화면) 대기
+- 현재 작업: 없음 — 개발 6 1차 완료·푸시(core/llm.py·0004 llm_calls·승인 차단 훅·ADR-002 API 키만). 2차 중 recover_stale 워커 기동 연결 완료(2026-11-06, .venv에서 test_core_llm 35·test_worker_queue 30 통과). 설계 초안 tasks/plan-dev6-2.md(사용자 확정 대기). 남은 2차: 워커 단계 topic·flow·plan·subtitle 연결(프롬프트·출력 스키마 설계), 화면
 - 다음 후보(모두 사람 결정·준비 필요):
   1. task-008 개발 1: 실제 자체 보유(own) 소스 1편 + SRT 경로 → check→recalc→render→inspect, 음량 허용 오차·LRA·dynamic 허용·true peak(AAC 뒤) 실측. approve는 사람.
   2. task-013 개발 6 2차: 워커 단계·화면 연결. SRT는 job source에서 직접 읽어 권리-내용 결속, 실제 API 시험 호출은 사용자 키·비용 승인 후.

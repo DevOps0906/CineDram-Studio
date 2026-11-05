@@ -333,6 +333,14 @@ class StartupTest(Base):
         self.assertEqual(self.job(j)[:2], ("review", "held_human"))
         self.assertTrue(any("복구" in (e[2] or "") for e in self.events(j)))
 
+    def test_main_recovers_stale_llm_calls(self):
+        j = self.add_job()
+        self.conn.execute("INSERT INTO llm_calls(job_id, step, model, input_sha256, status, cost_usd, "
+                          "created_at) VALUES (?, 'topic', 'm', 'h', 'started', 1, '2000-01-01T00:00:00.000Z')",
+                          (j,))
+        self.assertEqual(wmain.main(["--once"], self.db, self.tmp / "var" / "w2.lock", self.tmp), 0)
+        self.assertEqual(self.conn.execute("SELECT status FROM llm_calls").fetchone()[0], "error")
+
 
 class EnvDefaultsTest(Base):
     """CINEDRAM_DB·CINEDRAM_ROOTS: 미설정이면 기존 기본값, 설정이면 그 값을 쓴다."""

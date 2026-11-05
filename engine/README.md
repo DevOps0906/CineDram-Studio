@@ -1,6 +1,6 @@
-# engine/ — 자리표 (코드는 요청 시 작성)
+# engine/ — 처리 모듈 계약과 구현 현황
 
-단계 1부터 필요한 처리 모듈의 입출력 계약만 적어 둔다.
+구현됨: `shortsflow.py`의 서브커맨드 check·inspect·tts-plan·tts-measure·recalc·approve·render·handoff·delegate, `inspect_av.py`. 아래 표는 단계 1부터 필요한 처리 모듈의 입출력 계약이며, 받아쓰기(whisper)·폴더 감시 등은 계약만 있고 코드가 없다.
 
 | 모듈 | 입력 | 출력 | 규칙 |
 |---|---|---|---|

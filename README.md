@@ -95,7 +95,7 @@ NOMAD 9단계(02~07은 기능 단위로 반복). 이 프로젝트의 단계별 �
 ## 폴더
 
 ```
-yeongdeu-blueprint/
+CineDram-Studio/
 ├─ skills/shorts-blueprint/SKILL.md   공통 절차(권리 게이트→자막→소재→제목→지시서→자막→점검)
 ├─ rules/
 │  ├─ common.md                       공통 규칙(후킹·자막 수치·정밀도·권리 게이트·점검표)
@@ -127,7 +127,7 @@ yeongdeu-blueprint/
 ├─ design/                             디자인 시스템(tokens.css·DESIGN.md) + wireframes/ 화면 시안 HTML 14장
 ├─ engine/shortsflow.py + templates/   검증·TTS 실측·재계산·렌더·핸드오프·위임 (Python+ffmpeg)
 ├─ db/                                 SQLite 마이그레이션(0001_init.sql)·적용기 migrate.py
-├─ tests/                              엔진·DB 스키마 테스트(unittest 71개)
+├─ tests/                              엔진·DB·서버·워커·LLM 테스트(unittest 약 495개)
 ├─ data/                              자리표
 └─ _원본_무료판/                       원래의 SKILL.md, 규칙.md (보존)
 ```
