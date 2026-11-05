@@ -8,6 +8,7 @@
     <span class="label muted">{{ c.note }}</span>
     {%- if c.hold_reason %}<span class="label muted">{{ c.hold_reason }}</span>{% endif %}
     {%- if c.state == "review" %}<a class="btn btn-link-sm" href="/inbox?job={{ c.id }}">승인함에서 보기</a>{% endif %}
+    {%- if c.hold_reason and c.hold_reason.startswith("관문") %}<a class="btn btn-primary" href="/gate/{{ c.id }}">선택하기</a>{% endif %}
   </div>
   {%- if c.can_revert %}
   {% call post_form("/jobs/" ~ c.id ~ "/revert-plan", csrf) %}

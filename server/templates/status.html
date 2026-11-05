@@ -9,6 +9,17 @@
   <p class="label muted">진행 중 {{ running|length }} · 승인 대기 {{ waiting|length }}</p>
 </div>
 <div id="poll-banner" hidden>{{ banner("현황을 불러오지 못했습니다. 아래는 마지막으로 받은 내용입니다.") }}</div>
+{%- if usage %}
+<section class="card" aria-label="AI 사용량">
+  <h2 class="card-title">AI 사용량</h2>
+  <dl class="kv num">
+    <dt>이번 달</dt><dd>${{ "%.2f"|format(usage.month) }} / ${{ "%.2f"|format(usage.monthly_cap) }}</dd>
+    <dt>오늘</dt><dd>${{ "%.2f"|format(usage.day) }} / ${{ "%.2f"|format(usage.daily_cap) }}</dd>
+    <dt>작업당 상한</dt><dd>${{ "%.2f"|format(usage.job_cap) }} · 모델 {{ usage.model }}</dd>
+  </dl>
+  <p class="label muted">호출 전 최악 비용을 예약해 합산하므로 실제 사용액보다 크게 보일 수 있습니다. 일·월 경계는 한국 시간 자정입니다.</p>
+</section>
+{%- endif %}
 <div id="jobs" data-fragment="/status/fragment">
   {% include "_status_list.html" %}
 </div>

@@ -1,6 +1,6 @@
 # plan-dev6-2 — 개발 6 2차 설계 초안 (LLM 워커 단계·화면 연결)
 
-상태: **초안, 사용자 확정 전**. 근거: `core/llm.py`(1차), `worker/runner.py`, `db/migrations/0001·0004`, `docs/13 §관문`, `docs/14 §6-4`.
+상태: **구현됨(2026-11-06, 제안 기본값으로 진행 — 열린 결정은 사용자 미확정)**. 구현 범위: topic·flow·plan(subtitle 은 plan 호출에 통합: tts_text·sub_lines 를 함께 생성), 관문 ①② 화면(`/gate/<id>`), 만들기·원클릭의 "AI 초안으로 시작", `/status` AI 사용량. 미검증: 실제 API 호출, 엔진 `check` 를 실제 AI 출력으로 돌린 결과(목 기반 테스트만). 속도 "끝까지 자동"은 아직 관문을 건너뛰지 않는다. 원문 초안: 근거: `core/llm.py`(1차), `worker/runner.py`, `db/migrations/0001·0004`, `docs/13 §관문`, `docs/14 §6-4`.
 코드는 이 초안 확정 뒤에 작성한다. 실제 API 호출은 사용자 키·비용 승인 후.
 
 ## 1. 현재 사실

@@ -69,7 +69,7 @@ def _options(sources):
 def _ctx(request, conn, values=None, errors=None, page="make", form_error=None):
     sources = _sources(conn, _root(request))
     v = {"source_id": "", "rule_set": "", "plan_path": "", "exec_mode": "auto_render", "topic_mode": "new",
-         "speed": "review", "channel_id": ""}
+         "speed": "review", "channel_id": "", "ai_draft": ""}
     v.update(values or {})
     return {"page": page, "title": "원클릭 제작" if page == "oneclick" else "만들기", "values": v,
             "errors": errors or {}, "form_error": form_error, "sources": sources, "source_options": _options(sources),
@@ -96,12 +96,13 @@ def _validate(form, conn, root):
     errors = {}
     vals = {k: form.get(k, "").strip() for k in
             ("source_id", "rule_set", "plan_path", "exec_mode", "topic_mode", "speed", "channel_id")}
+    vals["ai_draft"] = "1" if form.get("ai_draft") == "1" else ""
     vals["exec_mode"] = vals["exec_mode"] or "auto_render"
     src = None
     if not vals["source_id"].isdigit() or len(vals["source_id"]) > 12:
         errors["source_id"] = "원본을 골라 주세요."
     else:
-        src = conn.execute("SELECT id, file_path, rights_status FROM sources WHERE id = ?",
+        src = conn.execute("SELECT id, file_path, srt_path, rights_status FROM sources WHERE id = ?",
                            (int(vals["source_id"]),)).fetchone()
         if src is None:
             errors["source_id"] = "등록되지 않은 원본입니다."
@@ -116,7 +117,16 @@ def _validate(form, conn, root):
     if not CHANNEL_RE.match(vals["channel_id"]):
         errors["channel_id"] = "채널 값은 영문·숫자·._@- 64자까지입니다."
     pp = vals["plan_path"]
-    if not pp or len(pp) > MAX_PLAN_PATH:
+    if vals["ai_draft"]:  # AI 초안: 컷표 없이 시작. 자막 등록·권리 확인·원본 파일이 있어야 한다
+        vals["plan_path"] = ""
+        if src is not None:
+            if not src["srt_path"]:
+                errors["ai_draft"] = "자막(SRT)이 등록된 원본만 AI 초안으로 시작할 수 있습니다."
+            elif src["rights_status"] not in ("own", "licensed"):
+                errors["ai_draft"] = "권리가 확인된 원본만 AI 초안으로 시작할 수 있습니다."
+            elif not _file_exists(root, src["file_path"]):
+                errors["ai_draft"] = "원본 파일이 있어야 AI 초안으로 시작할 수 있습니다."
+    elif not pp or len(pp) > MAX_PLAN_PATH:
         errors["plan_path"] = "컷표 경로를 작업 루트 기준 상대 경로로 적어 주세요."
     elif not pp.lower().endswith(".json"):
         errors["plan_path"] = "컷표(.json) 파일 경로여야 합니다."
@@ -156,7 +166,7 @@ def _create_job(conn, vals, src, root):
             "INSERT INTO jobs (source_id, rule_set, topic_mode, channel_id, speed, exec_mode, plan_path) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (src["id"], json.dumps(["common", vals["rule_set"]]), vals["topic_mode"] or None,
-             vals["channel_id"] or None, vals["speed"] or None, vals["exec_mode"], vals["plan_path"]))
+             vals["channel_id"] or None, vals["speed"] or None, vals["exec_mode"], vals["plan_path"] or None))
         job_id = cur.lastrowid
         jobs_repo.add_event(conn, job_id, None, "queued", "만들기 접수")
         conn.execute("COMMIT")
@@ -164,7 +174,10 @@ def _create_job(conn, vals, src, root):
         conn.execute("ROLLBACK")
         raise
     jobs_repo.transition_from(conn, job_id, "queued", "matching", message="원본·자막 확인 중")
-    if _file_exists(root, src["file_path"]):
+    if vals["ai_draft"]:  # 컷표 없는 AI 초안 작업: 워커가 소재 후보부터 만든다(worker/steps.py)
+        jobs_repo.transition_from(conn, job_id, "matching", "topic", queue_state="waiting",
+                                  message="AI 초안 시작 — 소재 후보 생성 대기")
+    elif _file_exists(root, src["file_path"]):
         jobs_repo.transition_from(conn, job_id, "matching", "topic", queue_state="held_human",
                                   message="원본 확인 완료 — 기획 승인 대기", hold_reason="기획 승인 대기")
     else:

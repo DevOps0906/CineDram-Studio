@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import post_form, hidden, button, empty_state %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">관문 선택{% if job %} · 작업 {{ job.id }}{% endif %}</h1>
+    <p class="page-sub muted">AI가 제안한 후보 중에서 사람이 고릅니다. 고른 뒤에도 기획 승인은 따로 직접 합니다.{% if job and job.title %} 작품: {{ job.title }}{% endif %}</p>
+  </div>
+</div>
+
+{%- if not gate %}
+{% call empty_state("지금은 고를 항목이 없습니다", "이 작업은 선택을 기다리는 상태가 아니거나 존재하지 않습니다.", "inbox") %}{% endcall %}
+<p><a class="btn btn-secondary" href="/status">제작 현황으로</a></p>
+
+{%- elif gate == 1 %}
+<section class="card" aria-labelledby="g1">
+  <h2 id="g1" class="card-title">관문 ① 소재 선택</h2>
+  <ul class="list">
+    {%- for t in topics %}
+    <li class="card">
+      <p><strong>{{ t.hook_line }}</strong></p>
+      <p class="label muted num">원본 {{ "%.1f"|format(t.source_start) }}~{{ "%.1f"|format(t.source_end) }}초 · 결 {{ t.tone_primary }}</p>
+      {% call post_form("/gate/" ~ job.id ~ "/topic", request.state.csrf_token) %}
+        {{ hidden("topic_id", t.id) }}
+        {{ button("이 소재로 진행", "primary", ico="check", type="submit") }}
+      {% endcall %}
+    </li>
+    {%- endfor %}
+  </ul>
+</section>
+
+{%- else %}
+<section class="card" aria-labelledby="g2">
+  <h2 id="g2" class="card-title">관문 ② 흐름·제목 선택</h2>
+  {%- if not flow %}
+  {% call empty_state("흐름 파일을 읽을 수 없습니다", "다시 생성하려면 작업을 취소하고 새로 접수하세요.", "filex") %}{% endcall %}
+  {%- else %}
+  <p><strong>후킹</strong> {{ flow.hook_line }}</p>
+  <ol class="list">{%- for line in flow.flow %}<li>{{ line }}</li>{%- endfor %}</ol>
+  <h3 class="section-title">제목 후보</h3>
+  <ul class="list">
+    {%- for title in flow.titles %}
+    <li class="card">
+      <p><strong>{{ title }}</strong></p>
+      {% call post_form("/gate/" ~ job.id ~ "/flow", request.state.csrf_token) %}
+        {{ hidden("title_index", loop.index0) }}
+        {{ button("이 제목으로 컷표 초안 만들기", "primary", ico="check", type="submit") }}
+      {% endcall %}
+    </li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</section>
+{%- endif %}
+{% endblock %}

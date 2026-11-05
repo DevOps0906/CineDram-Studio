@@ -50,7 +50,7 @@ class StepsBase(unittest.TestCase):
         self.addCleanup(self.conn.close)
         self.conn.execute("INSERT INTO works(title) VALUES ('작품')")
 
-    def add_job(self, rights="own", srt="a.srt", **kw):
+    def add_job(self, rights="own", srt="원본/a.srt", **kw):
         cur = self.conn.execute("INSERT INTO sources(work_id, file_path, srt_path, origin, rights_status) "
                                 "VALUES (1, 'a.mp4', ?, 'local_file', ?)", (srt, rights))
         cols = {"source_id": cur.lastrowid, "state": "topic", "queue_state": "waiting",
@@ -141,7 +141,7 @@ class TopicFlowTest(StepsBase):
         self.assertEqual(self.job(j)[:2], ("failed", "finished"))
 
     def test_missing_or_escaping_srt_holds_without_api(self):
-        for srt in (None, "없음.srt", "../a.srt"):
+        for srt in (None, "원본/없음.srt", "../a.srt"):
             j = self.add_job(srt=srt)
             _, m = self.step_once(lambda *a, **k: TOPIC_OUT)
             m.assert_not_called()
@@ -155,6 +155,77 @@ class TopicFlowTest(StepsBase):
         mk.assert_not_called()
         self.assertEqual(self.job(j)[:2], ("topic", "held_human"))
         self.assertIn("권리", self.job(j)[2])
+
+
+PLAN_OUT = {
+    "topic": "소재 한 줄", "conflict_type": "들킬 위기", "ending": "끝 장면", "hook_time": 5.0,
+    "hook_line": "이건 정말", "title_lines": ["첫째 줄", "둘째 줄"],
+    "cuts": [
+        {"kind": "dialog", "src_start": 5.0, "src_end": 9.5, "label": "", "tts_text": "", "sub_lines": []},
+        {"kind": "narration", "src_start": 10.0, "src_end": 18.0, "label": "시작", "tts_text": "문장입니다",
+         "sub_lines": ["문장", "입니다"]},
+        {"kind": "dialog", "src_start": 20.0, "src_end": 25.0, "label": "", "tts_text": "", "sub_lines": []},
+    ],
+}
+
+
+class PlanTest(StepsBase):
+    def to_gate2(self, **kw):
+        j = self.add_job(**kw)
+        self.step_once(lambda *a, **k: TOPIC_OUT)
+        tid = self.conn.execute("SELECT id FROM topics WHERE job_id=? ORDER BY id", (j,)).fetchone()[0]
+        steps.choose_topic(self.conn, j, tid)
+        self.step_once(lambda *a, **k: FLOW_OUT)
+        return j
+
+    def test_choose_flow_writes_choice_and_waits(self):
+        j = self.to_gate2()
+        self.assertFalse(steps.choose_flow(self.conn, j, self.tmp, 3))   # 범위 밖
+        self.assertFalse(steps.choose_flow(self.conn, j, self.tmp, -1))
+        self.assertTrue(steps.choose_flow(self.conn, j, self.tmp, 1))
+        self.assertEqual(self.job(j)[:2], ("topic", "waiting"))
+        c = json.loads((self.tmp / "var" / "jobs" / str(j) / steps.CHOICE_FILE).read_text(encoding="utf-8"))
+        self.assertEqual((c["title"], c["start"], c["end"]), ("t2", 1.0, 9.5))
+        self.assertFalse(steps.choose_flow(self.conn, j, self.tmp, 1))   # 이미 선택함
+
+    def test_plan_builds_cuts_from_db_facts_and_awaits_approval(self):
+        j = self.to_gate2()
+        steps.choose_flow(self.conn, j, self.tmp, 0)
+        evil = dict(PLAN_OUT)  # 권리·원본 값은 AI 출력으로 못 바꾼다(스키마가 금지 필드를 막고, 빌더는 DB 값만)
+        with mock.patch("worker.steps.subproc.run", return_value=mock.Mock(returncode=0, output="")):
+            got, m = self.step_once(lambda *a, **k: evil)
+        self.assertEqual(m.call_args.args[2], "plan")
+        self.assertEqual(self.job(j)[:3], ("topic", "held_human", steps.PLAN_REASON))
+        plan = json.loads((self.tmp / "컷표.json").read_text(encoding="utf-8"))
+        self.assertEqual(plan["meta"]["rights_status"], "own")
+        self.assertEqual(plan["meta"]["source_video"], "a.mp4")
+        self.assertNotIn("sensitive_review", plan["meta"])  # 사람이 채워야 기획 승인 가능
+        self.assertEqual([c["kind"] for c in plan["cuts"]], ["dialog", "narration", "dialog"])
+        self.assertEqual(plan["cuts"][1]["beat"], 1)
+        self.assertEqual(self.conn.execute("SELECT plan_path FROM jobs WHERE id=?", (j,)).fetchone()[0], "컷표.json")
+
+    def test_plan_check_failure_noted(self):
+        j = self.to_gate2()
+        steps.choose_flow(self.conn, j, self.tmp, 0)
+        with mock.patch("worker.steps.subproc.run", return_value=mock.Mock(returncode=1, output="")):
+            self.step_once(lambda *a, **k: PLAN_OUT)
+        self.assertIn("check 오류", self.job(j)[2])
+
+    def test_plan_does_not_overwrite_existing_file(self):
+        j = self.to_gate2()
+        steps.choose_flow(self.conn, j, self.tmp, 0)
+        (self.tmp / "컷표.json").write_text("{}", encoding="utf-8")
+        _, m = self.step_once(lambda *a, **k: PLAN_OUT)
+        m.assert_not_called()
+        self.assertEqual((self.tmp / "컷표.json").read_text(encoding="utf-8"), "{}")
+        self.assertEqual(self.job(j)[:2], ("topic", "held_human"))
+
+    def test_plan_bad_title_lines_hold(self):
+        j = self.to_gate2()
+        steps.choose_flow(self.conn, j, self.tmp, 0)
+        self.step_once(lambda *a, **k: {**PLAN_OUT, "title_lines": ["한 줄"]})
+        self.assertFalse((self.tmp / "컷표.json").exists())
+        self.assertIsNone(self.conn.execute("SELECT plan_path FROM jobs WHERE id=?", (j,)).fetchone()[0])
 
 
 class CoexistTest(StepsBase):

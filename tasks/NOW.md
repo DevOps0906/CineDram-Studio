@@ -1,6 +1,6 @@
 # NOW — 재진입 스냅샷 (30줄 이내, 매 작업 끝에 덮어쓴다)
 
-- 갱신: 2026-11-03(개발 6 1차)
+- 갱신: 2026-11-06(개발 6 2차 구현 — 목 테스트 통과, 실호출 전). 새 파일: worker/steps.py · server/routes/gates.py · templates/gate.html · tests/test_worker_steps.py·test_gates.py. 다음: 사용자 키·비용 승인 뒤 실호출 1회 시험(소재→흐름→컷표 초안→엔진 check), 사용자 열린 결정(plan-dev6-2 §6) 확정
 - 현재 작업: 없음 — 개발 6 1차 완료·푸시(core/llm.py·0004 llm_calls·승인 차단 훅·ADR-002 API 키만). 2차 중 recover_stale 워커 기동 연결 완료(2026-11-06, .venv에서 test_core_llm 35·test_worker_queue 30 통과). 설계 초안 tasks/plan-dev6-2.md(사용자 확정 대기). 남은 2차: 워커 단계 topic·flow·plan·subtitle 연결(프롬프트·출력 스키마 설계), 화면
 - 다음 후보(모두 사람 결정·준비 필요):
   1. task-008 개발 1: 실제 자체 보유(own) 소스 1편 + SRT 경로 → check→recalc→render→inspect, 음량 허용 오차·LRA·dynamic 허용·true peak(AAC 뒤) 실측. approve는 사람.

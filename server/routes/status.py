@@ -1,12 +1,13 @@
 """제작 현황 (R5 `/status`, R6 `/status/fragment`). 읽기 전용. R9 폼·R15 버튼은 화면만 그리고 핸들러는 decisions.py(U4)."""
 import json
 import re
+import sqlite3
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
-from core import approval, paths
+from core import approval, llm, paths
 from core.logmask import mask
 from server.deps import get_db, templates
 
@@ -130,7 +131,9 @@ def build_cards(conn, root, now=None, open_id=None):
             "plan_form": None,
         }
         # R9 폼은 topic + held_human 에만. 해시는 열린 카드 하나만 계산한다(폴링 목록에서는 계산 안 함).
-        card["can_approve"] = job["state"] == "topic" and job["queue_state"] == "held_human"
+        # 관문 ①② 선택 대기 중인 AI 초안 작업은 선택이 먼저라 승인 폼을 열지 않는다.
+        card["can_approve"] = (job["state"] == "topic" and job["queue_state"] == "held_human"
+                               and not (job["hold_reason"] or "").startswith("관문"))
         if card["can_approve"] and job["id"] == open_id:
             summary = plan_summary(root, job["plan_path"]) if job["plan_path"] else None
             h = current_plan_hash(root, job["plan_path"]) if summary else None
@@ -167,9 +170,23 @@ def _context(request, conn, open_id=None):
     return {"running": running, "waiting": waiting, "failed": recent_failures(conn), "csrf": request.state.csrf_token}
 
 
+def llm_usage(conn, now=None):
+    """AI 사용량(월·일, KST 자정 경계)과 상한. 설정 오류·테이블 없음이면 None(화면에서 숨김)."""
+    try:
+        cfg = llm.settings()
+        day_start, month_start = llm.kst_bounds(now or datetime.now(timezone.utc))
+        spent = lambda start: conn.execute(  # noqa: E731
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE created_at >= ?", (start,)).fetchone()[0]
+        return {"month": spent(month_start), "day": spent(day_start), "monthly_cap": cfg["monthly_usd"],
+                "daily_cap": cfg["daily_usd"], "job_cap": cfg["job_usd"], "model": cfg["model"]}
+    except (ValueError, sqlite3.Error):
+        return None
+
+
 @router.get("/status", response_class=HTMLResponse)
 def status_page(request: Request, approve: int | None = None, conn=Depends(get_db)):
     ctx = _context(request, conn, open_id=approve)
+    ctx["usage"] = llm_usage(conn)
     ctx.update(page="status", title="제작 현황",
                nav_counts={"inbox": sum(c["state"] == "review" for c in ctx["waiting"]),
                            "status": len(ctx["running"]) + len(ctx["waiting"])})
